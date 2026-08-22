@@ -480,6 +480,23 @@ body.white-theme {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+/* Bundle Badge Tag on Image */
+.bundle-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
 .card-body {
     padding: 1.25rem;
     display: flex;
@@ -536,6 +553,13 @@ body.white-theme {
     font-size: 0.75rem;
     color: var(--text-secondary);
     font-weight: 400;
+}
+
+.piece-rate-hint {
+    font-size: 0.75rem;
+    color: var(--brand-gold);
+    font-weight: 600;
+    margin-top: 0.15rem;
 }
 
 .card-actions {

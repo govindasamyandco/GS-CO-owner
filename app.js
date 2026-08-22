@@ -1,21 +1,23 @@
-// Sample Products with Govindasamy & Co Mat Products Data
+// Sample Products with Govindasamy & Co Mat Products & Bundle Data
 let products = [
     {
         id: 'p1',
         title: 'Heavy Duty Printed Panipat Door Mat',
         category: 'Panipat Mat',
-        baseRate: 180,
-        unit: 'per Piece',
-        description: 'Authentic Panipat woven door mat with high water absorbency and vibrant traditional print.',
+        baseRate: 1800,
+        unit: 'per Bundle',
+        bundlePieces: 10,
+        description: 'Authentic Panipat woven door mat sold in bundles of 10 pieces with vibrant traditional prints.',
         imageUrl: 'public/assets/Visiting card front.png'
     },
     {
         id: 'p2',
         title: 'Premium Handloom Cotton Export Mat',
         category: 'Export Mat',
-        baseRate: 450,
-        unit: 'per Piece',
-        description: 'Export quality heavyweight cotton floor mat with braided edges and anti-skid rubber backing.',
+        baseRate: 4500,
+        unit: 'per Bundle',
+        bundlePieces: 10,
+        description: 'Export quality heavyweight cotton floor mats packed in 10-piece bundles with anti-skid backing.',
         imageUrl: 'public/assets/Visiting card back.jpg'
     },
     {
@@ -24,6 +26,7 @@ let products = [
         category: 'Local Mat',
         baseRate: 95,
         unit: 'per Piece',
+        bundlePieces: 0,
         description: 'Economical multi-color entryway mat suitable for home, office, and shop entrances.',
         imageUrl: 'public/assets/logo.jpg'
     },
@@ -31,9 +34,10 @@ let products = [
         id: 'p4',
         title: '6ft Anti-Slip Runner Long Mat',
         category: 'Long Mat',
-        baseRate: 680,
-        unit: 'per Piece',
-        description: 'Extra long hallway and kitchen runner mat with soft washable fabric and heavy grip base.',
+        baseRate: 6800,
+        unit: 'per Bundle',
+        bundlePieces: 10,
+        description: 'Extra long hallway and kitchen runner mats bundled in 10-piece sets.',
         imageUrl: 'public/assets/logo.jpg'
     }
 ];
@@ -61,6 +65,22 @@ function setupEventListeners() {
     const newCategoryInput = document.getElementById('newCategoryInput');
     const saveCategoryBtn = document.getElementById('saveCategoryBtn');
     const cancelCategoryBtn = document.getElementById('cancelCategoryBtn');
+    
+    const unitTypeSelect = document.getElementById('unitType');
+    const bundlePiecesGroup = document.getElementById('bundlePiecesGroup');
+    const bundlePiecesInput = document.getElementById('bundlePieces');
+
+    // Show/Hide Pieces per Bundle Input when "per Bundle" is selected
+    unitTypeSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'per Bundle') {
+            bundlePiecesGroup.classList.remove('hidden');
+            if (!bundlePiecesInput.value) {
+                bundlePiecesInput.value = '10'; // default bundle size suggestion
+            }
+        } else {
+            bundlePiecesGroup.classList.add('hidden');
+        }
+    });
 
     // Show/Hide New Category Input when "+ Create New Category..." is selected
     productCategorySelect.addEventListener('change', (e) => {
@@ -108,12 +128,11 @@ function setupEventListeners() {
         // Add to array
         categories.push(catName);
 
-        // Add option to Product Form Dropdown (before "+ Create New Category...")
+        // Add option to Product Form Dropdown
         const newOptionForm = document.createElement('option');
         newOptionForm.value = catName;
         newOptionForm.textContent = catName;
         
-        // Insert right before the last "+ Create New Category..." option
         const lastOption = productCategorySelect.options[productCategorySelect.options.length - 1];
         productCategorySelect.insertBefore(newOptionForm, lastOption);
 
@@ -180,7 +199,8 @@ function setupEventListeners() {
         }
 
         const baseRate = parseFloat(document.getElementById('baseRate').value);
-        const unit = document.getElementById('unitType').value;
+        const unit = unitTypeSelect.value;
+        const bundlePieces = unit === 'per Bundle' ? (parseInt(bundlePiecesInput.value) || 1) : 0;
         const description = document.getElementById('productDesc').value;
 
         const newProduct = {
@@ -189,6 +209,7 @@ function setupEventListeners() {
             category,
             baseRate,
             unit,
+            bundlePieces,
             description: description || 'No additional details provided.',
             imageUrl: uploadedImageDataUrl || 'public/assets/logo.jpg'
         };
@@ -197,6 +218,7 @@ function setupEventListeners() {
 
         // Reset form & upload zone
         productForm.reset();
+        bundlePiecesGroup.classList.add('hidden');
         removeImgBtn.click();
         
         renderProducts();
@@ -227,12 +249,20 @@ function renderProducts() {
     }
 
     filtered.forEach(p => {
+        const isBundle = p.unit === 'per Bundle' && p.bundlePieces > 0;
+        const perPieceRate = isBundle ? Math.round(p.baseRate / p.bundlePieces) : 0;
+
         const card = document.createElement('div');
         card.className = 'product-card';
         card.innerHTML = `
             <div class="card-img-wrapper">
                 <img src="${p.imageUrl}" alt="${p.title}" class="card-img" onerror="this.src='public/assets/logo.jpg'">
                 <span class="category-tag">${p.category}</span>
+                ${isBundle ? `
+                    <span class="bundle-badge">
+                        <i class="fa-solid fa-boxes-packing"></i> ${p.bundlePieces} Pcs / Bundle
+                    </span>
+                ` : ''}
             </div>
 
             <div class="card-body">
@@ -246,12 +276,15 @@ function renderProducts() {
                             ₹${p.baseRate.toLocaleString('en-IN')}
                             <span class="unit-label">/${p.unit.replace('per ', '')}</span>
                         </div>
+                        ${isBundle ? `
+                            <div class="piece-rate-hint">(~ ₹${perPieceRate.toLocaleString('en-IN')} / pc)</div>
+                        ` : ''}
                     </div>
                 </div>
 
                 <div class="card-actions">
                     <button type="button" class="btn-action" onclick="quickUpdatePrice('${p.id}')">
-                        <i class="fa-solid fa-pen-to-square"></i> Edit Rate
+                        <i class="fa-solid fa-pen-to-square"></i> Edit Rate / Bundle
                     </button>
                     <button type="button" class="btn-action btn-delete" onclick="deleteProduct('${p.id}')">
                         <i class="fa-solid fa-trash"></i> Delete
@@ -278,6 +311,13 @@ function quickUpdatePrice(id) {
     const newRate = prompt(`Update Rate (₹) for "${prod.title}":`, prod.baseRate);
     if (newRate && !isNaN(newRate) && parseFloat(newRate) > 0) {
         prod.baseRate = parseFloat(newRate);
+        
+        if (prod.unit === 'per Bundle') {
+            const newPcs = prompt(`Update Pieces Count in this Bundle for "${prod.title}":`, prod.bundlePieces || 10);
+            if (newPcs && !isNaN(newPcs) && parseInt(newPcs) > 0) {
+                prod.bundlePieces = parseInt(newPcs);
+            }
+        }
         renderProducts();
     }
 }

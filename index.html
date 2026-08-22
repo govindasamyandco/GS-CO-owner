@@ -42,7 +42,7 @@
                 <section class="card product-form-card">
                     <div class="card-header">
                         <h2><i class="fa-solid fa-circle-plus"></i> Upload New Mat Product</h2>
-                        <p class="section-desc">Add mat details, upload photo, choose/add category, and set rate.</p>
+                        <p class="section-desc">Add mat details, upload photo, choose/add category, and set rate/bundle options.</p>
                     </div>
 
                     <form id="productForm">
@@ -97,21 +97,28 @@
                             </div>
                         </div>
 
-                        <!-- Rate Uploading -->
+                        <!-- Rate & Unit Uploading -->
                         <div class="form-row">
                             <div class="form-group col-6">
                                 <label for="baseRate"><i class="fa-solid fa-indian-rupee-sign"></i> Rate (₹)</label>
-                                <input type="number" id="baseRate" class="form-control" placeholder="e.g. 250" min="1" required>
+                                <input type="number" id="baseRate" class="form-control" placeholder="e.g. 1200" min="1" required>
                             </div>
                             <div class="form-group col-6">
                                 <label for="unitType"><i class="fa-solid fa-ruler-combined"></i> Rate Unit</label>
                                 <select id="unitType" class="form-control">
                                     <option value="per Piece">per Piece</option>
+                                    <option value="per Bundle">per Bundle</option>
+                                    <option value="per Dozen">per Dozen</option>
                                     <option value="per Meter">per Meter</option>
                                     <option value="per Feet">per Feet</option>
-                                    <option value="per Dozen">per Dozen</option>
                                 </select>
                             </div>
+                        </div>
+
+                        <!-- Pieces per Bundle / Pack Field (Conditional / Optional) -->
+                        <div class="form-group hidden" id="bundlePiecesGroup">
+                            <label for="bundlePieces"><i class="fa-solid fa-boxes-packing"></i> Pieces per Bundle (Pcs Count)</label>
+                            <input type="number" id="bundlePieces" class="form-control" placeholder="e.g. 10 pcs or 24 pcs per bundle" min="1">
                         </div>
 
                         <!-- Product Description -->
@@ -132,7 +139,7 @@
                 <div class="catalog-header card">
                     <div>
                         <h2><i class="fa-solid fa-border-all"></i> Mat Products Catalog</h2>
-                        <p>All mat products displayed in clean card format with details and rates.</p>
+                        <p>All mat products displayed in clean card format with details, rates, and bundle piece counts.</p>
                     </div>
                     <div class="catalog-filters">
                         <select id="filterCategory" class="filter-select">
