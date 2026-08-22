@@ -20,16 +20,16 @@
                 <img src="public/assets/logo.jpg" alt="Govindasamy & Co Logo" class="brand-logo">
                 <div class="brand-titles">
                     <h1>Govindasamy & Co</h1>
-                    <span class="brand-tagline">Textile & Fabric Admin Dashboard</span>
+                    <span class="brand-tagline">Mat & Textile Products Admin Dashboard</span>
                 </div>
             </div>
             
             <div class="quick-stats">
                 <div class="stat-badge">
-                    <i class="fa-solid fa-boxes-stacked"></i>
+                    <i class="fa-solid fa-rug"></i>
                     <div>
                         <span class="stat-value" id="statTotalProducts">4</span>
-                        <span class="stat-label">Total Products</span>
+                        <span class="stat-label">Total Mat Products</span>
                     </div>
                 </div>
             </div>
@@ -41,8 +41,8 @@
             <aside class="control-panel">
                 <section class="card product-form-card">
                     <div class="card-header">
-                        <h2><i class="fa-solid fa-circle-plus"></i> Upload New Product</h2>
-                        <p class="section-desc">Add product details, upload image, select category, and set rate.</p>
+                        <h2><i class="fa-solid fa-circle-plus"></i> Upload New Mat Product</h2>
+                        <p class="section-desc">Add mat details, upload photo, choose/add category, and set rate.</p>
                     </div>
 
                     <form id="productForm">
@@ -53,7 +53,7 @@
                                 <input type="file" id="imageInput" accept="image/*" class="file-input">
                                 <div class="upload-placeholder" id="uploadPlaceholder">
                                     <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
-                                    <p>Click or drag & drop product photo</p>
+                                    <p>Click or drag & drop mat photo</p>
                                     <span class="upload-hint">JPG, PNG or WEBP up to 5MB</span>
                                 </div>
                                 <div class="image-preview-container hidden" id="previewContainer">
@@ -67,35 +67,49 @@
 
                         <!-- Product Title -->
                         <div class="form-group">
-                            <label for="productName"><i class="fa-solid fa-tag"></i> Product Name / Code</label>
-                            <input type="text" id="productName" class="form-control" placeholder="e.g. Kanchipuram Pure Silk Saree" required>
+                            <label for="productName"><i class="fa-solid fa-tag"></i> Mat Name / Code</label>
+                            <input type="text" id="productName" class="form-control" placeholder="e.g. Heavy Duty Panipat Door Mat" required>
                         </div>
 
-                        <!-- Category Choosing -->
+                        <!-- Category Choosing + New Category Creation -->
                         <div class="form-group">
                             <label for="productCategory"><i class="fa-solid fa-layer-group"></i> Choose Category</label>
                             <select id="productCategory" class="form-control" required>
-                                <option value="" disabled selected>Select Product Category</option>
-                                <option value="Silk Sarees">Silk Sarees</option>
-                                <option value="Pure Cotton Dhotis">Pure Cotton Dhotis</option>
-                                <option value="Designer Fabrics">Designer Fabrics & Material</option>
-                                <option value="Shirting & Suits">Shirting & Suitings</option>
-                                <option value="Wedding Specials">Wedding Specials</option>
+                                <option value="" disabled selected>Select Mat Category</option>
+                                <option value="Panipat Mat">Panipat Mat</option>
+                                <option value="Export Mat">Export Mat</option>
+                                <option value="Local Mat">Local Mat</option>
+                                <option value="Long Mat">Long Mat</option>
+                                <option value="NEW_CATEGORY">+ Create New Category...</option>
                             </select>
+
+                            <!-- Hidden New Category Input Field -->
+                            <div class="new-category-box hidden" id="newCategoryBox">
+                                <div class="input-with-btn">
+                                    <input type="text" id="newCategoryInput" class="form-control" placeholder="Type new category name...">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="saveCategoryBtn">
+                                        <i class="fa-solid fa-check"></i> Add
+                                    </button>
+                                    <button type="button" class="btn btn-icon btn-sm" id="cancelCategoryBtn">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Rate Uploading -->
                         <div class="form-row">
                             <div class="form-group col-6">
                                 <label for="baseRate"><i class="fa-solid fa-indian-rupee-sign"></i> Rate (₹)</label>
-                                <input type="number" id="baseRate" class="form-control" placeholder="e.g. 4500" min="1" required>
+                                <input type="number" id="baseRate" class="form-control" placeholder="e.g. 250" min="1" required>
                             </div>
                             <div class="form-group col-6">
                                 <label for="unitType"><i class="fa-solid fa-ruler-combined"></i> Rate Unit</label>
                                 <select id="unitType" class="form-control">
                                     <option value="per Piece">per Piece</option>
                                     <option value="per Meter">per Meter</option>
-                                    <option value="per Set">per Set</option>
+                                    <option value="per Feet">per Feet</option>
+                                    <option value="per Dozen">per Dozen</option>
                                 </select>
                             </div>
                         </div>
@@ -103,11 +117,11 @@
                         <!-- Product Description -->
                         <div class="form-group">
                             <label for="productDesc"><i class="fa-solid fa-align-left"></i> Product Details</label>
-                            <textarea id="productDesc" class="form-control" rows="3" placeholder="Brief description, weave details, color variations..."></textarea>
+                            <textarea id="productDesc" class="form-control" rows="3" placeholder="Dimensions, material thickness, color/design patterns..."></textarea>
                         </div>
 
                         <button type="submit" class="btn btn-primary btn-block">
-                            <i class="fa-solid fa-plus-circle"></i> Upload Product to Catalog
+                            <i class="fa-solid fa-plus-circle"></i> Upload Mat Product
                         </button>
                     </form>
                 </section>
@@ -117,16 +131,16 @@
             <section class="catalog-section">
                 <div class="catalog-header card">
                     <div>
-                        <h2><i class="fa-solid fa-border-all"></i> Product Catalog</h2>
-                        <p>All stored products displayed in clean card format with details and rates.</p>
+                        <h2><i class="fa-solid fa-border-all"></i> Mat Products Catalog</h2>
+                        <p>All mat products displayed in clean card format with details and rates.</p>
                     </div>
                     <div class="catalog-filters">
                         <select id="filterCategory" class="filter-select">
                             <option value="ALL">All Categories</option>
-                            <option value="Silk Sarees">Silk Sarees</option>
-                            <option value="Pure Cotton Dhotis">Pure Cotton Dhotis</option>
-                            <option value="Designer Fabrics">Designer Fabrics</option>
-                            <option value="Shirting & Suits">Shirting & Suits</option>
+                            <option value="Panipat Mat">Panipat Mat</option>
+                            <option value="Export Mat">Export Mat</option>
+                            <option value="Local Mat">Local Mat</option>
+                            <option value="Long Mat">Long Mat</option>
                         </select>
                     </div>
                 </div>

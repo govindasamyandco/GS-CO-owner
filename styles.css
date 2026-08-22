@@ -238,6 +238,44 @@ body.white-theme {
     flex: 1;
 }
 
+/* New Category Inline Box */
+.new-category-box {
+    margin-top: 0.6rem;
+    padding: 0.75rem;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: var(--radius-sm);
+}
+
+.input-with-btn {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.btn-secondary {
+    background: var(--brand-navy);
+    color: #ffffff;
+}
+
+.btn-secondary:hover {
+    background: var(--brand-navy-dark);
+}
+
+.btn-icon {
+    background: #e2e8f0;
+    color: var(--text-primary);
+    padding: 0.5rem 0.75rem;
+}
+
+.btn-icon:hover {
+    background: #cbd5e1;
+}
+
+.btn-sm {
+    padding: 0.5rem 0.85rem;
+    font-size: 0.85rem;
+}
+
 /* --------------------------------------------------------------------------
    Image Upload Zone
    -------------------------------------------------------------------------- */

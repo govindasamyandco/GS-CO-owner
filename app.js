@@ -1,42 +1,45 @@
-// Sample Products with Govindasamy & Co Textile Data
+// Sample Products with Govindasamy & Co Mat Products Data
 let products = [
     {
         id: 'p1',
-        title: 'Kanchipuram Zari Pure Silk Saree',
-        category: 'Silk Sarees',
-        baseRate: 12500,
+        title: 'Heavy Duty Printed Panipat Door Mat',
+        category: 'Panipat Mat',
+        baseRate: 180,
         unit: 'per Piece',
-        description: 'Authentic handwoven mulberry silk with rich zari border and traditional temple motifs.',
+        description: 'Authentic Panipat woven door mat with high water absorbency and vibrant traditional print.',
         imageUrl: 'public/assets/Visiting card front.png'
     },
     {
         id: 'p2',
-        title: 'Premium Organic Cotton Dhoti Set',
-        category: 'Pure Cotton Dhotis',
-        baseRate: 1200,
-        unit: 'per Set',
-        description: '100% combed cotton dhoti with gold zari border, ideal for ceremonies and traditional occasions.',
+        title: 'Premium Handloom Cotton Export Mat',
+        category: 'Export Mat',
+        baseRate: 450,
+        unit: 'per Piece',
+        description: 'Export quality heavyweight cotton floor mat with braided edges and anti-skid rubber backing.',
         imageUrl: 'public/assets/Visiting card back.jpg'
     },
     {
         id: 'p3',
-        title: 'Raw Jacquard Silk Brocade Material',
-        category: 'Designer Fabrics',
-        baseRate: 850,
-        unit: 'per Meter',
-        description: 'Heavyweight floral jacquard fabric suitable for sherwanis, lehengas, and designer wear.',
+        title: 'Durable Daily Use Local Mat',
+        category: 'Local Mat',
+        baseRate: 95,
+        unit: 'per Piece',
+        description: 'Economical multi-color entryway mat suitable for home, office, and shop entrances.',
         imageUrl: 'public/assets/logo.jpg'
     },
     {
         id: 'p4',
-        title: 'Super 120s Linen Shirting Fabric',
-        category: 'Shirting & Suits',
-        baseRate: 650,
-        unit: 'per Meter',
-        description: 'Breathable high-thread-count linen fabric available in rich festive shades.',
+        title: '6ft Anti-Slip Runner Long Mat',
+        category: 'Long Mat',
+        baseRate: 680,
+        unit: 'per Piece',
+        description: 'Extra long hallway and kitchen runner mat with soft washable fabric and heavy grip base.',
         imageUrl: 'public/assets/logo.jpg'
     }
 ];
+
+// Available categories list
+let categories = ['Panipat Mat', 'Export Mat', 'Local Mat', 'Long Mat'];
 
 let uploadedImageDataUrl = null;
 
@@ -52,9 +55,84 @@ function initApp() {
 }
 
 function setupEventListeners() {
-    // Category Filter
-    const filterCategory = document.getElementById('filterCategory');
-    filterCategory.addEventListener('change', () => {
+    const productCategorySelect = document.getElementById('productCategory');
+    const filterCategorySelect = document.getElementById('filterCategory');
+    const newCategoryBox = document.getElementById('newCategoryBox');
+    const newCategoryInput = document.getElementById('newCategoryInput');
+    const saveCategoryBtn = document.getElementById('saveCategoryBtn');
+    const cancelCategoryBtn = document.getElementById('cancelCategoryBtn');
+
+    // Show/Hide New Category Input when "+ Create New Category..." is selected
+    productCategorySelect.addEventListener('change', (e) => {
+        if (e.target.value === 'NEW_CATEGORY') {
+            newCategoryBox.classList.remove('hidden');
+            newCategoryInput.focus();
+        } else {
+            newCategoryBox.classList.add('hidden');
+        }
+    });
+
+    // Save New Category Handler
+    saveCategoryBtn.addEventListener('click', () => {
+        addNewCategory();
+    });
+
+    newCategoryInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addNewCategory();
+        }
+    });
+
+    cancelCategoryBtn.addEventListener('click', () => {
+        newCategoryInput.value = '';
+        newCategoryBox.classList.add('hidden');
+        productCategorySelect.selectedIndex = 0;
+    });
+
+    function addNewCategory() {
+        const catName = newCategoryInput.value.trim();
+        if (!catName) {
+            alert('Please enter a valid category name.');
+            return;
+        }
+
+        if (categories.includes(catName)) {
+            alert('Category already exists!');
+            newCategoryInput.value = '';
+            newCategoryBox.classList.add('hidden');
+            productCategorySelect.value = catName;
+            return;
+        }
+
+        // Add to array
+        categories.push(catName);
+
+        // Add option to Product Form Dropdown (before "+ Create New Category...")
+        const newOptionForm = document.createElement('option');
+        newOptionForm.value = catName;
+        newOptionForm.textContent = catName;
+        
+        // Insert right before the last "+ Create New Category..." option
+        const lastOption = productCategorySelect.options[productCategorySelect.options.length - 1];
+        productCategorySelect.insertBefore(newOptionForm, lastOption);
+
+        // Add option to Filter Dropdown
+        const newOptionFilter = document.createElement('option');
+        newOptionFilter.value = catName;
+        newOptionFilter.textContent = catName;
+        filterCategorySelect.appendChild(newOptionFilter);
+
+        // Select the new category
+        productCategorySelect.value = catName;
+        newCategoryInput.value = '';
+        newCategoryBox.classList.add('hidden');
+
+        alert(`New Category "${catName}" created and selected!`);
+    }
+
+    // Category Filter Change
+    filterCategorySelect.addEventListener('change', () => {
         renderProducts();
     });
 
@@ -94,7 +172,13 @@ function setupEventListeners() {
         e.preventDefault();
         
         const title = document.getElementById('productName').value;
-        const category = document.getElementById('productCategory').value;
+        const category = productCategorySelect.value;
+
+        if (category === 'NEW_CATEGORY' || !category) {
+            alert('Please select or create a valid product category.');
+            return;
+        }
+
         const baseRate = parseFloat(document.getElementById('baseRate').value);
         const unit = document.getElementById('unitType').value;
         const description = document.getElementById('productDesc').value;
@@ -136,7 +220,7 @@ function renderProducts() {
         grid.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #64748b;">
                 <i class="fa-solid fa-folder-open" style="font-size: 3rem; margin-bottom: 1rem; color: var(--brand-emerald);"></i>
-                <p style="font-size: 1.1rem; font-weight: 600;">No products found in this category.</p>
+                <p style="font-size: 1.1rem; font-weight: 600;">No mat products found in this category.</p>
             </div>
         `;
         return;
@@ -157,7 +241,7 @@ function renderProducts() {
                 
                 <div class="price-box">
                     <div>
-                        <span class="rate-label">Product Rate</span>
+                        <span class="rate-label">Rate</span>
                         <div class="rate-value">
                             ₹${p.baseRate.toLocaleString('en-IN')}
                             <span class="unit-label">/${p.unit.replace('per ', '')}</span>
