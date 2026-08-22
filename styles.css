@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Govindasamy & Co Admin Dashboard - Clean White Theme
+   Govindasamy & Co Admin Dashboard - Clean White Theme & Login Portal
    Palette: Crisp White (#ffffff), Slate Off-White (#f8fafc),
             Royal Navy (#010356), Emerald Green (#258402), Gold (#d97706)
    ========================================================================== */
@@ -48,6 +48,157 @@ body.white-theme {
     line-height: 1.5;
 }
 
+/* --------------------------------------------------------------------------
+   1. ADMIN LOGIN PORTAL STYLES
+   -------------------------------------------------------------------------- */
+.login-wrapper {
+    min-height: 90vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    background: radial-gradient(circle at 50% 20%, rgba(1, 3, 86, 0.05) 0%, rgba(248, 250, 252, 1) 100%);
+}
+
+.login-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 50px rgba(1, 3, 86, 0.12);
+    width: 100%;
+    max-width: 440px;
+    padding: 2.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    position: relative;
+}
+
+.login-header {
+    text-align: center;
+}
+
+.login-logo {
+    width: 75px;
+    height: 75px;
+    border-radius: 16px;
+    object-fit: cover;
+    border: 3px solid var(--brand-gold);
+    box-shadow: 0 0 20px rgba(217, 119, 6, 0.3);
+    margin-bottom: 0.85rem;
+}
+
+.login-header h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--brand-navy);
+    letter-spacing: -0.5px;
+}
+
+.login-subtitle {
+    font-size: 0.88rem;
+    color: var(--brand-gold);
+    font-weight: 600;
+    margin-top: 0.15rem;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.input-icon-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon-wrapper .form-control {
+    padding-right: 2.5rem;
+}
+
+.input-icon {
+    position: absolute;
+    right: 14px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.input-icon:hover {
+    color: var(--brand-navy);
+}
+
+.login-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.82rem;
+}
+
+.remember-me {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.remember-me input {
+    accent-color: var(--brand-emerald);
+}
+
+.forgot-pass-link {
+    color: var(--brand-navy);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.forgot-pass-link:hover {
+    text-decoration: underline;
+}
+
+.error-msg {
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    color: #b91c1c;
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-login {
+    margin-top: 0.5rem;
+}
+
+.login-footer {
+    text-align: center;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 1.2rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.login-footer p i {
+    color: var(--brand-emerald);
+}
+
+.version-tag {
+    display: block;
+    font-size: 0.72rem;
+    margin-top: 0.25rem;
+}
+
+/* --------------------------------------------------------------------------
+   2. DASHBOARD & TOP NAVIGATION HEADER
+   -------------------------------------------------------------------------- */
 .app-container {
     max-width: 1400px;
     margin: 0 auto;
@@ -56,9 +207,6 @@ body.white-theme {
     gap: 1.5rem;
 }
 
-/* --------------------------------------------------------------------------
-   Top Navigation Header (Royal Navy Brand Header)
-   -------------------------------------------------------------------------- */
 .top-nav {
     display: flex;
     align-items: center;
@@ -135,8 +283,24 @@ body.white-theme {
     letter-spacing: 0.5px;
 }
 
+.btn-logout {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+    padding: 0.6rem 1.1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-logout:hover {
+    background: rgba(239, 68, 68, 0.35);
+    color: #ffffff;
+}
+
 /* --------------------------------------------------------------------------
-   Main Layout Grid
+   3. MAIN LAYOUT & CARDS
    -------------------------------------------------------------------------- */
 .main-layout {
     display: grid;
@@ -156,9 +320,6 @@ body.white-theme {
     gap: 1.5rem;
 }
 
-/* --------------------------------------------------------------------------
-   White Theme Card Container
-   -------------------------------------------------------------------------- */
 .card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -191,9 +352,7 @@ body.white-theme {
     margin-top: 0.25rem;
 }
 
-/* --------------------------------------------------------------------------
-   Form Elements
-   -------------------------------------------------------------------------- */
+/* Form Elements */
 .form-group {
     margin-bottom: 1.2rem;
 }
@@ -283,9 +442,7 @@ body.white-theme {
     font-size: 0.85rem;
 }
 
-/* --------------------------------------------------------------------------
-   Image Upload Zone
-   -------------------------------------------------------------------------- */
+/* Image Upload Zone */
 .image-upload-zone {
     border: 2px dashed #cbd5e1;
     border-radius: var(--radius-sm);
@@ -395,9 +552,7 @@ body.white-theme {
     width: 100%;
 }
 
-/* --------------------------------------------------------------------------
-   Product Catalog & Cards (Pure White Theme)
-   -------------------------------------------------------------------------- */
+/* Catalog Grid & Product Cards */
 .catalog-section {
     display: flex;
     flex-direction: column;
@@ -435,7 +590,6 @@ body.white-theme {
     gap: 1.5rem;
 }
 
-/* White Theme Product Card */
 .product-card {
     background: #ffffff;
     border: 1px solid var(--border-color);
@@ -487,7 +641,6 @@ body.white-theme {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* Bundle Badge Tag on Image */
 .bundle-badge {
     position: absolute;
     top: 12px;
@@ -530,7 +683,6 @@ body.white-theme {
     overflow: hidden;
 }
 
-/* Customer Purchase Rule Box */
 .purchase-rule-box {
     background: #fffbeb;
     border: 1px solid #fcd34d;

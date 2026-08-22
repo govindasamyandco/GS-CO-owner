@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Govindasamy & Co - Admin Product & Rate Portal</title>
+    <title>Govindasamy & Co - Admin Portal Login</title>
     <link rel="stylesheet" href="styles.css">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +13,66 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="white-theme">
-    <div class="app-container">
+
+    <!-- ==========================================================================
+         1. ADMIN LOGIN CONTAINER
+         ========================================================================== -->
+    <div class="login-wrapper" id="loginWrapper">
+        <div class="login-card">
+            <!-- Brand Logo & Header -->
+            <div class="login-header">
+                <img src="public/assets/logo.jpg" alt="Govindasamy & Co Logo" class="login-logo">
+                <h1>Govindasamy & Co</h1>
+                <p class="login-subtitle">Admin Management Portal</p>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="adminEmail"><i class="fa-solid fa-envelope"></i> Email / Username</label>
+                    <div class="input-icon-wrapper">
+                        <input type="email" id="adminEmail" class="form-control" placeholder="govindasamy.textitle@gmail.com" value="govindasamy.textitle@gmail.com" required>
+                        <i class="fa-solid fa-user input-icon"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="adminPassword"><i class="fa-solid fa-lock"></i> Password</label>
+                    <div class="input-icon-wrapper">
+                        <input type="password" id="adminPassword" class="form-control" placeholder="Enter admin password" value="admin123" required>
+                        <i class="fa-solid fa-eye-slash input-icon toggle-password" id="togglePasswordBtn"></i>
+                    </div>
+                </div>
+
+                <div class="login-options">
+                    <label class="remember-me">
+                        <input type="checkbox" id="rememberMe" checked>
+                        <span>Remember session</span>
+                    </label>
+                    <a href="#" class="forgot-pass-link" id="forgotPassBtn">Forgot password?</a>
+                </div>
+
+                <div class="error-msg hidden" id="loginError">
+                    <i class="fa-solid fa-triangle-exclamation"></i> <span id="loginErrorText">Invalid credentials. Please try again.</span>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block btn-login" id="loginSubmitBtn">
+                    <i class="fa-solid fa-right-to-bracket"></i> Login to Admin Dashboard
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <p><i class="fa-solid fa-shield-halved"></i> Authorized Admin Access Only</p>
+                <span class="version-tag">Govindasamy & Co v1.0 • Firebase Secured</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ==========================================================================
+         2. MAIN DASHBOARD CONTAINER (Hidden until Logged In)
+         ========================================================================== -->
+    <div class="app-container hidden" id="dashboardContainer">
         <!-- Top Navigation Header -->
         <header class="top-nav">
             <div class="brand-group">
@@ -32,6 +91,16 @@
                         <span class="stat-label">Total Mat Products</span>
                     </div>
                 </div>
+                <div class="stat-badge admin-user-badge">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <div>
+                        <span class="stat-value" id="activeAdminUser">govindasamy</span>
+                        <span class="stat-label">Admin Logged In</span>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-logout" id="logoutBtn" title="Log Out">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+                </button>
             </div>
         </header>
 

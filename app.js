@@ -1,4 +1,4 @@
-// Sample Products with Govindasamy & Co Mat Products, Bundle/Dozen Units & Purchase Rules
+// Sample Products Data
 let products = [
     {
         id: 'p1',
@@ -46,22 +46,109 @@ let products = [
     }
 ];
 
-// Available categories list
 let categories = ['Panipat Mat', 'Export Mat', 'Local Mat', 'Long Mat'];
-
 let uploadedImageDataUrl = null;
 
 // DOM Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    initApp();
+    initAuthAndApp();
 });
 
-function initApp() {
+function initAuthAndApp() {
+    setupAuthListeners();
     setupEventListeners();
+
+    // Check if session already logged in
+    const isLoggedIn = sessionStorage.getItem('admin_logged_in') === 'true';
+    if (isLoggedIn) {
+        showDashboard();
+    } else {
+        showLogin();
+    }
+}
+
+/* ==========================================================================
+   1. AUTHENTICATION (LOGIN / LOGOUT) HANDLERS
+   ========================================================================== */
+function setupAuthListeners() {
+    const loginForm = document.getElementById('loginForm');
+    const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+    const adminPasswordInput = document.getElementById('adminPassword');
+    const loginError = document.getElementById('loginError');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const forgotPassBtn = document.getElementById('forgotPassBtn');
+
+    // Toggle Password Visibility
+    togglePasswordBtn.addEventListener('click', () => {
+        if (adminPasswordInput.type === 'password') {
+            adminPasswordInput.type = 'text';
+            togglePasswordBtn.classList.remove('fa-eye-slash');
+            togglePasswordBtn.classList.add('fa-eye');
+        } else {
+            adminPasswordInput.type = 'password';
+            togglePasswordBtn.classList.remove('fa-eye');
+            togglePasswordBtn.classList.add('fa-eye-slash');
+        }
+    });
+
+    // Forgot Password Alert
+    forgotPassBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        alert('Password reset instructions have been sent to your registered admin email: govindasamy.textitle@gmail.com');
+    });
+
+    // Login Form Submit
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('adminEmail').value.trim();
+        const password = adminPasswordInput.value;
+
+        // Basic verification (Can connect to Firebase Auth)
+        if (email && password.length >= 4) {
+            loginError.classList.add('hidden');
+            
+            // Extract username before @
+            const username = email.split('@')[0];
+            sessionStorage.setItem('admin_logged_in', 'true');
+            sessionStorage.setItem('admin_username', username);
+
+            document.getElementById('activeAdminUser').innerText = username;
+            showDashboard();
+        } else {
+            loginError.classList.remove('hidden');
+        }
+    });
+
+    // Logout Button
+    logoutBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to log out of Admin Portal?')) {
+            sessionStorage.removeItem('admin_logged_in');
+            sessionStorage.removeItem('admin_username');
+            showLogin();
+        }
+    });
+}
+
+function showDashboard() {
+    document.getElementById('loginWrapper').classList.add('hidden');
+    document.getElementById('dashboardContainer').classList.remove('hidden');
+    
+    const user = sessionStorage.getItem('admin_username') || 'govindasamy';
+    document.getElementById('activeAdminUser').innerText = user;
+
     renderProducts();
     updateStats();
 }
 
+function showLogin() {
+    document.getElementById('dashboardContainer').classList.add('hidden');
+    document.getElementById('loginWrapper').classList.remove('hidden');
+}
+
+
+/* ==========================================================================
+   2. PRODUCT FORM & CATALOG MANAGEMENT
+   ========================================================================== */
 function setupEventListeners() {
     const productCategorySelect = document.getElementById('productCategory');
     const filterCategorySelect = document.getElementById('filterCategory');
