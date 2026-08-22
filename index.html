@@ -3,43 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Govindasamy & Co - Admin Portal Login</title>
+    <title>Govindasamy & Co - Admin Portal</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- Google Fonts -->
+    <!-- Google Fonts: Playfair Display (Classic Elegant Serif) + Plus Jakarta Sans (Modern Clean Body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="white-theme">
+<body class="classic-luxury-theme">
 
     <!-- ==========================================================================
-         1. ADMIN LOGIN CONTAINER
+         1. ELEGANT CLASSIC ADMIN LOGIN PORTAL
          ========================================================================== -->
     <div class="login-wrapper" id="loginWrapper">
         <div class="login-card">
-            <!-- Brand Logo & Header -->
+            <!-- Decorative Gold Frame -->
+            <div class="gold-frame-accent"></div>
+
+            <!-- Brand Header -->
             <div class="login-header">
-                <img src="public/assets/logo.jpg" alt="Govindasamy & Co Logo" class="login-logo">
-                <h1>Govindasamy & Co</h1>
-                <p class="login-subtitle">Admin Management Portal</p>
+                <div class="logo-crest-wrapper">
+                    <img src="public/assets/logo.jpg" alt="Govindasamy & Co Logo" class="login-logo">
+                </div>
+                <h1 class="classic-title">Govindasamy & Co</h1>
+                <div class="divider-gold"><span>❖</span></div>
+                <p class="login-subtitle">Textile & Mat Manufacturers • Admin Portal</p>
             </div>
 
             <!-- Login Form -->
             <form id="loginForm" class="login-form">
                 <div class="form-group">
-                    <label for="adminEmail"><i class="fa-solid fa-envelope"></i> Email / Username</label>
+                    <label for="adminEmail"><i class="fa-solid fa-user-gear"></i> Admin ID / Email Address</label>
                     <div class="input-icon-wrapper">
                         <input type="email" id="adminEmail" class="form-control" placeholder="govindasamy.textitle@gmail.com" value="govindasamy.textitle@gmail.com" required>
-                        <i class="fa-solid fa-user input-icon"></i>
+                        <i class="fa-solid fa-envelope input-icon"></i>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="adminPassword"><i class="fa-solid fa-lock"></i> Password</label>
+                    <label for="adminPassword"><i class="fa-solid fa-key"></i> Security Password</label>
                     <div class="input-icon-wrapper">
-                        <input type="password" id="adminPassword" class="form-control" placeholder="Enter admin password" value="admin123" required>
+                        <input type="password" id="adminPassword" class="form-control" placeholder="Enter password" value="admin123" required>
                         <i class="fa-solid fa-eye-slash input-icon toggle-password" id="togglePasswordBtn"></i>
                     </div>
                 </div>
@@ -47,59 +53,61 @@
                 <div class="login-options">
                     <label class="remember-me">
                         <input type="checkbox" id="rememberMe" checked>
-                        <span>Remember session</span>
+                        <span>Keep Admin Session Active</span>
                     </label>
-                    <a href="#" class="forgot-pass-link" id="forgotPassBtn">Forgot password?</a>
+                    <a href="#" class="forgot-pass-link" id="forgotPassBtn">Reset Access?</a>
                 </div>
 
                 <div class="error-msg hidden" id="loginError">
-                    <i class="fa-solid fa-triangle-exclamation"></i> <span id="loginErrorText">Invalid credentials. Please try again.</span>
+                    <i class="fa-solid fa-shield-cat"></i> <span id="loginErrorText">Authentication failed. Please verify credentials.</span>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-block btn-login" id="loginSubmitBtn">
-                    <i class="fa-solid fa-right-to-bracket"></i> Login to Admin Dashboard
+                <button type="submit" class="btn btn-luxury-primary btn-block btn-login" id="loginSubmitBtn">
+                    <span>Secure Sign In</span> <i class="fa-solid fa-arrow-right-to-bracket"></i>
                 </button>
             </form>
 
             <div class="login-footer">
-                <p><i class="fa-solid fa-shield-halved"></i> Authorized Admin Access Only</p>
-                <span class="version-tag">Govindasamy & Co v1.0 • Firebase Secured</span>
+                <p><i class="fa-solid fa-shield-check"></i> Encrypted Executive Access</p>
+                <span class="version-tag">Govindasamy & Co © 2026</span>
             </div>
         </div>
     </div>
 
 
     <!-- ==========================================================================
-         2. MAIN DASHBOARD CONTAINER (Hidden until Logged In)
+         2. CLASSIC LUXURY DASHBOARD (Hidden until Logged In)
          ========================================================================== -->
     <div class="app-container hidden" id="dashboardContainer">
-        <!-- Top Navigation Header -->
+        <!-- Elegant Top Navigation Header -->
         <header class="top-nav">
             <div class="brand-group">
-                <img src="public/assets/logo.jpg" alt="Govindasamy & Co Logo" class="brand-logo">
+                <div class="logo-border">
+                    <img src="public/assets/logo.jpg" alt="Govindasamy & Co Logo" class="brand-logo">
+                </div>
                 <div class="brand-titles">
-                    <h1>Govindasamy & Co</h1>
-                    <span class="brand-tagline">Mat & Textile Products Admin Dashboard</span>
+                    <h1 class="classic-brand-heading">Govindasamy & Co</h1>
+                    <span class="brand-tagline">Quality Mat & Textile Product Management</span>
                 </div>
             </div>
             
             <div class="quick-stats">
                 <div class="stat-badge">
-                    <i class="fa-solid fa-rug"></i>
+                    <i class="fa-solid fa-scroll"></i>
                     <div>
                         <span class="stat-value" id="statTotalProducts">4</span>
-                        <span class="stat-label">Total Mat Products</span>
+                        <span class="stat-label">Catalog Products</span>
                     </div>
                 </div>
                 <div class="stat-badge admin-user-badge">
                     <i class="fa-solid fa-user-shield"></i>
                     <div>
                         <span class="stat-value" id="activeAdminUser">govindasamy</span>
-                        <span class="stat-label">Admin Logged In</span>
+                        <span class="stat-label">Authorized Manager</span>
                     </div>
                 </div>
                 <button type="button" class="btn btn-logout" id="logoutBtn" title="Log Out">
-                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+                    <i class="fa-solid fa-power-off"></i> Exit Portal
                 </button>
             </div>
         </header>
@@ -110,20 +118,20 @@
             <aside class="control-panel">
                 <section class="card product-form-card">
                     <div class="card-header">
-                        <h2><i class="fa-solid fa-circle-plus"></i> Upload New Mat Product</h2>
-                        <p class="section-desc">Add mat details, upload photo, choose category, rate, and purchase conditions.</p>
+                        <h2><i class="fa-solid fa-pen-nib"></i> Add New Product Record</h2>
+                        <p class="section-desc">Upload product photograph, configure category, set rate unit and customer rules.</p>
                     </div>
 
                     <form id="productForm">
                         <!-- Image Upload Area -->
                         <div class="form-group">
-                            <label><i class="fa-solid fa-image"></i> Product Image Upload</label>
+                            <label><i class="fa-solid fa-camera-retro"></i> Product Photograph</label>
                             <div class="image-upload-zone" id="uploadZone">
                                 <input type="file" id="imageInput" accept="image/*" class="file-input">
                                 <div class="upload-placeholder" id="uploadPlaceholder">
                                     <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
-                                    <p>Click or drag & drop mat photo</p>
-                                    <span class="upload-hint">JPG, PNG or WEBP up to 5MB</span>
+                                    <p>Select or Drop Product Image</p>
+                                    <span class="upload-hint">High resolution JPG or PNG</span>
                                 </div>
                                 <div class="image-preview-container hidden" id="previewContainer">
                                     <img id="imagePreview" src="" alt="Product Preview">
@@ -136,28 +144,28 @@
 
                         <!-- Product Title -->
                         <div class="form-group">
-                            <label for="productName"><i class="fa-solid fa-tag"></i> Mat Name / Code</label>
+                            <label for="productName"><i class="fa-solid fa-quote-left"></i> Product Title / Code</label>
                             <input type="text" id="productName" class="form-control" placeholder="e.g. Heavy Duty Panipat Door Mat" required>
                         </div>
 
                         <!-- Category Choosing + New Category Creation -->
                         <div class="form-group">
-                            <label for="productCategory"><i class="fa-solid fa-layer-group"></i> Choose Category</label>
+                            <label for="productCategory"><i class="fa-solid fa-layer-group"></i> Select Category</label>
                             <select id="productCategory" class="form-control" required>
-                                <option value="" disabled selected>Select Mat Category</option>
+                                <option value="" disabled selected>Choose Product Category</option>
                                 <option value="Panipat Mat">Panipat Mat</option>
                                 <option value="Export Mat">Export Mat</option>
                                 <option value="Local Mat">Local Mat</option>
                                 <option value="Long Mat">Long Mat</option>
-                                <option value="NEW_CATEGORY">+ Create New Category...</option>
+                                <option value="NEW_CATEGORY">+ Create Custom Category...</option>
                             </select>
 
                             <!-- Hidden New Category Input Field -->
                             <div class="new-category-box hidden" id="newCategoryBox">
                                 <div class="input-with-btn">
-                                    <input type="text" id="newCategoryInput" class="form-control" placeholder="Type new category name...">
-                                    <button type="button" class="btn btn-secondary btn-sm" id="saveCategoryBtn">
-                                        <i class="fa-solid fa-check"></i> Add
+                                    <input type="text" id="newCategoryInput" class="form-control" placeholder="Enter new category title...">
+                                    <button type="button" class="btn btn-gold btn-sm" id="saveCategoryBtn">
+                                        <i class="fa-solid fa-plus"></i> Add
                                     </button>
                                     <button type="button" class="btn btn-icon btn-sm" id="cancelCategoryBtn">
                                         <i class="fa-solid fa-xmark"></i>
@@ -169,11 +177,11 @@
                         <!-- Rate & Unit Uploading -->
                         <div class="form-row">
                             <div class="form-group col-6">
-                                <label for="baseRate"><i class="fa-solid fa-indian-rupee-sign"></i> Rate (₹)</label>
+                                <label for="baseRate"><i class="fa-solid fa-indian-rupee-sign"></i> Wholesale Rate (₹)</label>
                                 <input type="number" id="baseRate" class="form-control" placeholder="e.g. 1800" min="1" required>
                             </div>
                             <div class="form-group col-6">
-                                <label for="unitType"><i class="fa-solid fa-ruler-combined"></i> Rate Unit</label>
+                                <label for="unitType"><i class="fa-solid fa-cubes"></i> Pricing Unit</label>
                                 <select id="unitType" class="form-control">
                                     <option value="per Piece">per Piece</option>
                                     <option value="per Bundle">per Bundle</option>
@@ -186,25 +194,25 @@
 
                         <!-- Pieces per Bundle / Dozen Count Field -->
                         <div class="form-group hidden" id="bundlePiecesGroup">
-                            <label for="bundlePieces"><i class="fa-solid fa-boxes-packing"></i> Pieces per Bundle / Dozen</label>
-                            <input type="number" id="bundlePieces" class="form-control" placeholder="e.g. 10 pcs per bundle or 12 pcs per dozen" min="1">
+                            <label for="bundlePieces"><i class="fa-solid fa-boxes-packing"></i> Bundle / Dozen Piece Count</label>
+                            <input type="number" id="bundlePieces" class="form-control" placeholder="e.g. 10 pcs in bundle" min="1">
                         </div>
 
                         <!-- User Purchase Condition Notice Setting -->
                         <div class="form-group">
-                            <label for="minOrderText"><i class="fa-solid fa-cart-flatbed"></i> Customer Purchase Notice</label>
-                            <input type="text" id="minOrderText" class="form-control" placeholder="Auto-generated based on unit (or type custom notice)...">
-                            <span class="input-hint">Informs users on the app if they must buy in full bundles/dozens.</span>
+                            <label for="minOrderText"><i class="fa-solid fa-cart-flatbed"></i> Ordering Terms for Customers</label>
+                            <input type="text" id="minOrderText" class="form-control" placeholder="Customer order requirement text...">
+                            <span class="input-hint">Displayed on customer catalog to specify minimum order rules.</span>
                         </div>
 
                         <!-- Product Description -->
                         <div class="form-group">
-                            <label for="productDesc"><i class="fa-solid fa-align-left"></i> Product Details</label>
-                            <textarea id="productDesc" class="form-control" rows="3" placeholder="Dimensions, material thickness, color/design patterns..."></textarea>
+                            <label for="productDesc"><i class="fa-solid fa-align-left"></i> Specifications & Details</label>
+                            <textarea id="productDesc" class="form-control" rows="3" placeholder="Dimensions, material thickness, color/weave pattern..."></textarea>
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-block">
-                            <i class="fa-solid fa-plus-circle"></i> Upload Mat Product
+                        <button type="submit" class="btn btn-luxury-primary btn-block">
+                            <i class="fa-solid fa-circle-check"></i> Publish Product Record
                         </button>
                     </form>
                 </section>
@@ -214,8 +222,8 @@
             <section class="catalog-section">
                 <div class="catalog-header card">
                     <div>
-                        <h2><i class="fa-solid fa-border-all"></i> Mat Products Catalog</h2>
-                        <p>All mat products displayed with clear customer purchase rules (Bundle / Dozen / Piece).</p>
+                        <h2><i class="fa-solid fa-table-cells"></i> Active Product Catalog</h2>
+                        <p class="section-desc">Manage products, verify piece counts, and update rates in real time.</p>
                     </div>
                     <div class="catalog-filters">
                         <select id="filterCategory" class="filter-select">
