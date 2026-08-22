@@ -1,4 +1,4 @@
-// Sample Products with Govindasamy & Co Mat Products & Bundle Data
+// Sample Products with Govindasamy & Co Mat Products, Bundle/Dozen Units & Purchase Rules
 let products = [
     {
         id: 'p1',
@@ -7,6 +7,7 @@ let products = [
         baseRate: 1800,
         unit: 'per Bundle',
         bundlePieces: 10,
+        minOrderNotice: 'Purchased per full Bundle (10 Pcs only)',
         description: 'Authentic Panipat woven door mat sold in bundles of 10 pieces with vibrant traditional prints.',
         imageUrl: 'public/assets/Visiting card front.png'
     },
@@ -17,6 +18,7 @@ let products = [
         baseRate: 4500,
         unit: 'per Bundle',
         bundlePieces: 10,
+        minOrderNotice: 'Purchased per full Bundle (10 Pcs only)',
         description: 'Export quality heavyweight cotton floor mats packed in 10-piece bundles with anti-skid backing.',
         imageUrl: 'public/assets/Visiting card back.jpg'
     },
@@ -27,6 +29,7 @@ let products = [
         baseRate: 95,
         unit: 'per Piece',
         bundlePieces: 0,
+        minOrderNotice: 'Available for individual piece purchase',
         description: 'Economical multi-color entryway mat suitable for home, office, and shop entrances.',
         imageUrl: 'public/assets/logo.jpg'
     },
@@ -37,6 +40,7 @@ let products = [
         baseRate: 6800,
         unit: 'per Bundle',
         bundlePieces: 10,
+        minOrderNotice: 'Purchased per full Bundle (10 Pcs only)',
         description: 'Extra long hallway and kitchen runner mats bundled in 10-piece sets.',
         imageUrl: 'public/assets/logo.jpg'
     }
@@ -69,16 +73,32 @@ function setupEventListeners() {
     const unitTypeSelect = document.getElementById('unitType');
     const bundlePiecesGroup = document.getElementById('bundlePiecesGroup');
     const bundlePiecesInput = document.getElementById('bundlePieces');
+    const minOrderTextInput = document.getElementById('minOrderText');
 
-    // Show/Hide Pieces per Bundle Input when "per Bundle" is selected
+    // Auto-update Unit Notice & Pieces Group based on selected Unit
     unitTypeSelect.addEventListener('change', (e) => {
-        if (e.target.value === 'per Bundle') {
+        const val = e.target.value;
+        if (val === 'per Bundle') {
             bundlePiecesGroup.classList.remove('hidden');
-            if (!bundlePiecesInput.value) {
-                bundlePiecesInput.value = '10'; // default bundle size suggestion
-            }
+            if (!bundlePiecesInput.value) bundlePiecesInput.value = '10';
+            minOrderTextInput.value = `Purchased per full Bundle (${bundlePiecesInput.value || 10} Pcs only)`;
+        } else if (val === 'per Dozen') {
+            bundlePiecesGroup.classList.remove('hidden');
+            bundlePiecesInput.value = '12';
+            minOrderTextInput.value = 'Purchased per Dozen (12 Pcs only)';
         } else {
             bundlePiecesGroup.classList.add('hidden');
+            minOrderTextInput.value = 'Available for individual purchase';
+        }
+    });
+
+    bundlePiecesInput.addEventListener('input', (e) => {
+        const pcs = e.target.value || 1;
+        const val = unitTypeSelect.value;
+        if (val === 'per Bundle') {
+            minOrderTextInput.value = `Purchased per full Bundle (${pcs} Pcs only)`;
+        } else if (val === 'per Dozen') {
+            minOrderTextInput.value = `Purchased per Dozen (${pcs} Pcs only)`;
         }
     });
 
@@ -200,7 +220,8 @@ function setupEventListeners() {
 
         const baseRate = parseFloat(document.getElementById('baseRate').value);
         const unit = unitTypeSelect.value;
-        const bundlePieces = unit === 'per Bundle' ? (parseInt(bundlePiecesInput.value) || 1) : 0;
+        const bundlePieces = (unit === 'per Bundle' || unit === 'per Dozen') ? (parseInt(bundlePiecesInput.value) || 1) : 0;
+        const minOrderNotice = minOrderTextInput.value || (unit === 'per Bundle' ? `Purchased per full Bundle (${bundlePieces} Pcs)` : unit === 'per Dozen' ? `Purchased per Dozen (${bundlePieces} Pcs)` : 'Available for individual purchase');
         const description = document.getElementById('productDesc').value;
 
         const newProduct = {
@@ -210,6 +231,7 @@ function setupEventListeners() {
             baseRate,
             unit,
             bundlePieces,
+            minOrderNotice,
             description: description || 'No additional details provided.',
             imageUrl: uploadedImageDataUrl || 'public/assets/logo.jpg'
         };
@@ -249,8 +271,8 @@ function renderProducts() {
     }
 
     filtered.forEach(p => {
-        const isBundle = p.unit === 'per Bundle' && p.bundlePieces > 0;
-        const perPieceRate = isBundle ? Math.round(p.baseRate / p.bundlePieces) : 0;
+        const isBulkUnit = (p.unit === 'per Bundle' || p.unit === 'per Dozen') && p.bundlePieces > 0;
+        const perPieceRate = isBulkUnit ? Math.round(p.baseRate / p.bundlePieces) : 0;
 
         const card = document.createElement('div');
         card.className = 'product-card';
@@ -258,9 +280,9 @@ function renderProducts() {
             <div class="card-img-wrapper">
                 <img src="${p.imageUrl}" alt="${p.title}" class="card-img" onerror="this.src='public/assets/logo.jpg'">
                 <span class="category-tag">${p.category}</span>
-                ${isBundle ? `
+                ${isBulkUnit ? `
                     <span class="bundle-badge">
-                        <i class="fa-solid fa-boxes-packing"></i> ${p.bundlePieces} Pcs / Bundle
+                        <i class="fa-solid fa-boxes-packing"></i> ${p.bundlePieces} Pcs / ${p.unit.replace('per ', '')}
                     </span>
                 ` : ''}
             </div>
@@ -268,6 +290,12 @@ function renderProducts() {
             <div class="card-body">
                 <h3 class="product-title">${p.title}</h3>
                 <p class="product-details">${p.description}</p>
+
+                <!-- Customer Purchase Rule Notice -->
+                <div class="purchase-rule-box">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>${p.minOrderNotice || (isBulkUnit ? `Must be purchased per ${p.unit.replace('per ', '')} (${p.bundlePieces} Pcs)` : 'Available for single piece purchase')}</span>
+                </div>
                 
                 <div class="price-box">
                     <div>
@@ -276,7 +304,7 @@ function renderProducts() {
                             ₹${p.baseRate.toLocaleString('en-IN')}
                             <span class="unit-label">/${p.unit.replace('per ', '')}</span>
                         </div>
-                        ${isBundle ? `
+                        ${isBulkUnit ? `
                             <div class="piece-rate-hint">(~ ₹${perPieceRate.toLocaleString('en-IN')} / pc)</div>
                         ` : ''}
                     </div>
@@ -284,7 +312,7 @@ function renderProducts() {
 
                 <div class="card-actions">
                     <button type="button" class="btn-action" onclick="quickUpdatePrice('${p.id}')">
-                        <i class="fa-solid fa-pen-to-square"></i> Edit Rate / Bundle
+                        <i class="fa-solid fa-pen-to-square"></i> Edit Rate / Rules
                     </button>
                     <button type="button" class="btn-action btn-delete" onclick="deleteProduct('${p.id}')">
                         <i class="fa-solid fa-trash"></i> Delete
@@ -312,10 +340,11 @@ function quickUpdatePrice(id) {
     if (newRate && !isNaN(newRate) && parseFloat(newRate) > 0) {
         prod.baseRate = parseFloat(newRate);
         
-        if (prod.unit === 'per Bundle') {
-            const newPcs = prompt(`Update Pieces Count in this Bundle for "${prod.title}":`, prod.bundlePieces || 10);
+        if (prod.unit === 'per Bundle' || prod.unit === 'per Dozen') {
+            const newPcs = prompt(`Update Pieces Count in this ${prod.unit} for "${prod.title}":`, prod.bundlePieces || 10);
             if (newPcs && !isNaN(newPcs) && parseInt(newPcs) > 0) {
                 prod.bundlePieces = parseInt(newPcs);
+                prod.minOrderNotice = `Purchased per full ${prod.unit.replace('per ', '')} (${prod.bundlePieces} Pcs only)`;
             }
         }
         renderProducts();
