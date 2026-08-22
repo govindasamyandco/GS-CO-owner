@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Govindasamy & Co - Admin Product & Rate Portal</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Navigation -->
+        <header class="top-nav">
+            <div class="brand-group">
+                <img src="public/assets/logo.jpg" alt="Govindasamy & Co Logo" class="brand-logo">
+                <div class="brand-titles">
+                    <h1>Govindasamy & Co</h1>
+                    <span class="brand-tagline">Textile & Fabric Admin Dashboard</span>
+                </div>
+            </div>
+            
+            <div class="quick-stats">
+                <div class="stat-badge">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                    <div>
+                        <span class="stat-value" id="statTotalProducts">4</span>
+                        <span class="stat-label">Products</span>
+                    </div>
+                </div>
+                <div class="stat-badge active-season">
+                    <i class="fa-solid fa-cloud-sun"></i>
+                    <div>
+                        <span class="stat-value" id="statSeasonLabel">Standard</span>
+                        <span class="stat-label">Season Rate</span>
+                    </div>
+                </div>
+                <div class="stat-badge demand-badge">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <div>
+                        <span class="stat-value" id="statDemandMultiplier">1.0x</span>
+                        <span class="stat-label">Demand Factor</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="main-layout">
+            <!-- Left Column: Global Rate Control & Add Product Form -->
+            <aside class="control-panel">
+                <!-- Dynamic Seasonal & Demand Rate Control Bar -->
+                <section class="card glass-card season-control-card">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-sliders"></i> Seasonal & Demand Rate Manager</h2>
+                    </div>
+                    <p class="section-desc">Adjust rates dynamically across products based on current market demand or festival season.</p>
+                    
+                    <div class="form-group">
+                        <label for="seasonSelect"><i class="fa-solid fa-calendar-star"></i> Select Active Season</label>
+                        <select id="seasonSelect" class="form-control">
+                            <option value="1.0" data-label="Standard Season">🌿 Standard Season (Normal Rate 100%)</option>
+                            <option value="1.20" data-label="Diwali / Festival Surge (+20%)">✨ Diwali / Festival Peak (+20%)</option>
+                            <option value="1.15" data-label="Wedding Season (+15%)">💍 Wedding Special (+15%)</option>
+                            <option value="0.90" data-label="Off-Season Discount (-10%)">🏷️ Off-Season Clearance (-10%)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="demandRange"><i class="fa-solid fa-fire-flame-curated"></i> Demand Level Surge</label>
+                        <div class="range-container">
+                            <input type="range" id="demandRange" min="0" max="30" step="5" value="0" class="form-range">
+                            <div class="range-labels">
+                                <span>Normal (+0%)</span>
+                                <span>Medium (+15%)</span>
+                                <span>High (+30%)</span>
+                            </div>
+                        </div>
+                        <div class="demand-indicator">
+                            Added Surge: <strong id="surgePercentage">+0%</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Add/Upload Product Form -->
+                <section class="card glass-card product-form-card">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-circle-plus"></i> Upload New Product</h2>
+                    </div>
+
+                    <form id="productForm">
+                        <!-- Image Upload Area -->
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-image"></i> Product Image Upload</label>
+                            <div class="image-upload-zone" id="uploadZone">
+                                <input type="file" id="imageInput" accept="image/*" class="file-input">
+                                <div class="upload-placeholder" id="uploadPlaceholder">
+                                    <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                                    <p>Click or drag & drop product photo</p>
+                                    <span class="upload-hint">JPG, PNG or WEBP up to 5MB</span>
+                                </div>
+                                <div class="image-preview-container hidden" id="previewContainer">
+                                    <img id="imagePreview" src="" alt="Product Preview">
+                                    <button type="button" class="btn-remove-img" id="removeImgBtn" title="Remove image">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Product Title -->
+                        <div class="form-group">
+                            <label for="productName"><i class="fa-solid fa-tag"></i> Product Name / Code</label>
+                            <input type="text" id="productName" class="form-control" placeholder="e.g. Kanchipuram Pure Silk Saree" required>
+                        </div>
+
+                        <!-- Category Choosing -->
+                        <div class="form-group">
+                            <label for="productCategory"><i class="fa-solid fa-layer-group"></i> Choose Category</label>
+                            <select id="productCategory" class="form-control" required>
+                                <option value="" disabled selected>Select Product Category</option>
+                                <option value="Silk Sarees">Silk Sarees</option>
+                                <option value="Pure Cotton Dhotis">Pure Cotton Dhotis</option>
+                                <option value="Designer Fabrics">Designer Fabrics & Material</option>
+                                <option value="Shirting & Suits">Shirting & Suitings</option>
+                                <option value="Wedding Specials">Wedding Specials</option>
+                            </select>
+                        </div>
+
+                        <!-- Base Rate Uploading -->
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="baseRate"><i class="fa-solid fa-indian-rupee-sign"></i> Base Rate (₹)</label>
+                                <input type="number" id="baseRate" class="form-control" placeholder="e.g. 4500" min="1" required>
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="unitType"><i class="fa-solid fa-ruler-combined"></i> Rate Unit</label>
+                                <select id="unitType" class="form-control">
+                                    <option value="per Piece">per Piece</option>
+                                    <option value="per Meter">per Meter</option>
+                                    <option value="per Set">per Set</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Product Description -->
+                        <div class="form-group">
+                            <label for="productDesc"><i class="fa-solid fa-align-left"></i> Product Details</label>
+                            <textarea id="productDesc" class="form-control" rows="2" placeholder="Brief description, weave details, color variations..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <i class="fa-solid fa-plus-circle"></i> Upload Product to Catalog
+                        </button>
+                    </form>
+                </section>
+            </aside>
+
+            <!-- Right Column: Product Card Catalog View -->
+            <section class="catalog-section">
+                <div class="catalog-header">
+                    <div>
+                        <h2><i class="fa-solid fa-border-all"></i> Product Catalog (Card View)</h2>
+                        <p>Live view of all stored products with dynamic seasonal/demand rate calculations.</p>
+                    </div>
+                    <div class="catalog-filters">
+                        <select id="filterCategory" class="filter-select">
+                            <option value="ALL">All Categories</option>
+                            <option value="Silk Sarees">Silk Sarees</option>
+                            <option value="Pure Cotton Dhotis">Pure Cotton Dhotis</option>
+                            <option value="Designer Fabrics">Designer Fabrics</option>
+                            <option value="Shirting & Suits">Shirting & Suits</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Product Card Grid -->
+                <div class="product-grid" id="productGrid">
+                    <!-- Product Cards will be dynamically injected here via app.js -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
