@@ -12,9 +12,9 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
+<body class="white-theme">
     <div class="app-container">
-        <!-- Sidebar / Navigation -->
+        <!-- Top Navigation Header -->
         <header class="top-nav">
             <div class="brand-group">
                 <img src="public/assets/logo.jpg" alt="Govindasamy & Co Logo" class="brand-logo">
@@ -29,21 +29,7 @@
                     <i class="fa-solid fa-boxes-stacked"></i>
                     <div>
                         <span class="stat-value" id="statTotalProducts">4</span>
-                        <span class="stat-label">Products</span>
-                    </div>
-                </div>
-                <div class="stat-badge active-season">
-                    <i class="fa-solid fa-cloud-sun"></i>
-                    <div>
-                        <span class="stat-value" id="statSeasonLabel">Standard</span>
-                        <span class="stat-label">Season Rate</span>
-                    </div>
-                </div>
-                <div class="stat-badge demand-badge">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <div>
-                        <span class="stat-value" id="statDemandMultiplier">1.0x</span>
-                        <span class="stat-label">Demand Factor</span>
+                        <span class="stat-label">Total Products</span>
                     </div>
                 </div>
             </div>
@@ -51,45 +37,12 @@
 
         <!-- Main Content Grid -->
         <main class="main-layout">
-            <!-- Left Column: Global Rate Control & Add Product Form -->
+            <!-- Left Column: Add/Upload Product Form -->
             <aside class="control-panel">
-                <!-- Dynamic Seasonal & Demand Rate Control Bar -->
-                <section class="card glass-card season-control-card">
-                    <div class="card-header">
-                        <h2><i class="fa-solid fa-sliders"></i> Seasonal & Demand Rate Manager</h2>
-                    </div>
-                    <p class="section-desc">Adjust rates dynamically across products based on current market demand or festival season.</p>
-                    
-                    <div class="form-group">
-                        <label for="seasonSelect"><i class="fa-solid fa-calendar-star"></i> Select Active Season</label>
-                        <select id="seasonSelect" class="form-control">
-                            <option value="1.0" data-label="Standard Season">🌿 Standard Season (Normal Rate 100%)</option>
-                            <option value="1.20" data-label="Diwali / Festival Surge (+20%)">✨ Diwali / Festival Peak (+20%)</option>
-                            <option value="1.15" data-label="Wedding Season (+15%)">💍 Wedding Special (+15%)</option>
-                            <option value="0.90" data-label="Off-Season Discount (-10%)">🏷️ Off-Season Clearance (-10%)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="demandRange"><i class="fa-solid fa-fire-flame-curated"></i> Demand Level Surge</label>
-                        <div class="range-container">
-                            <input type="range" id="demandRange" min="0" max="30" step="5" value="0" class="form-range">
-                            <div class="range-labels">
-                                <span>Normal (+0%)</span>
-                                <span>Medium (+15%)</span>
-                                <span>High (+30%)</span>
-                            </div>
-                        </div>
-                        <div class="demand-indicator">
-                            Added Surge: <strong id="surgePercentage">+0%</strong>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Add/Upload Product Form -->
-                <section class="card glass-card product-form-card">
+                <section class="card product-form-card">
                     <div class="card-header">
                         <h2><i class="fa-solid fa-circle-plus"></i> Upload New Product</h2>
+                        <p class="section-desc">Add product details, upload image, select category, and set rate.</p>
                     </div>
 
                     <form id="productForm">
@@ -131,10 +84,10 @@
                             </select>
                         </div>
 
-                        <!-- Base Rate Uploading -->
+                        <!-- Rate Uploading -->
                         <div class="form-row">
                             <div class="form-group col-6">
-                                <label for="baseRate"><i class="fa-solid fa-indian-rupee-sign"></i> Base Rate (₹)</label>
+                                <label for="baseRate"><i class="fa-solid fa-indian-rupee-sign"></i> Rate (₹)</label>
                                 <input type="number" id="baseRate" class="form-control" placeholder="e.g. 4500" min="1" required>
                             </div>
                             <div class="form-group col-6">
@@ -150,7 +103,7 @@
                         <!-- Product Description -->
                         <div class="form-group">
                             <label for="productDesc"><i class="fa-solid fa-align-left"></i> Product Details</label>
-                            <textarea id="productDesc" class="form-control" rows="2" placeholder="Brief description, weave details, color variations..."></textarea>
+                            <textarea id="productDesc" class="form-control" rows="3" placeholder="Brief description, weave details, color variations..."></textarea>
                         </div>
 
                         <button type="submit" class="btn btn-primary btn-block">
@@ -162,10 +115,10 @@
 
             <!-- Right Column: Product Card Catalog View -->
             <section class="catalog-section">
-                <div class="catalog-header">
+                <div class="catalog-header card">
                     <div>
-                        <h2><i class="fa-solid fa-border-all"></i> Product Catalog (Card View)</h2>
-                        <p>Live view of all stored products with dynamic seasonal/demand rate calculations.</p>
+                        <h2><i class="fa-solid fa-border-all"></i> Product Catalog</h2>
+                        <p>All stored products displayed in clean card format with details and rates.</p>
                     </div>
                     <div class="catalog-filters">
                         <select id="filterCategory" class="filter-select">
@@ -180,7 +133,7 @@
 
                 <!-- Product Card Grid -->
                 <div class="product-grid" id="productGrid">
-                    <!-- Product Cards will be dynamically injected here via app.js -->
+                    <!-- Product Cards injected dynamically via app.js -->
                 </div>
             </section>
         </main>

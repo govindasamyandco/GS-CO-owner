@@ -1,4 +1,4 @@
-// Sample Initial Products with Govindasamy & Co Textile Data
+// Sample Products with Govindasamy & Co Textile Data
 let products = [
     {
         id: 'p1',
@@ -38,14 +38,9 @@ let products = [
     }
 ];
 
-// Active Multipliers
-let currentSeasonFactor = 1.0; // Standard
-let currentSeasonLabel = 'Standard Season';
-let currentSurgePercent = 0; // 0%
-
 let uploadedImageDataUrl = null;
 
-// DOM Elements
+// DOM Initialization
 document.addEventListener('DOMContentLoaded', () => {
     initApp();
 });
@@ -57,34 +52,13 @@ function initApp() {
 }
 
 function setupEventListeners() {
-    // Season Selector
-    const seasonSelect = document.getElementById('seasonSelect');
-    seasonSelect.addEventListener('change', (e) => {
-        currentSeasonFactor = parseFloat(e.target.value);
-        const selectedOption = e.target.options[e.target.selectedIndex];
-        currentSeasonLabel = selectedOption.getAttribute('data-label') || 'Standard Season';
-        
-        document.getElementById('statSeasonLabel').innerText = currentSeasonLabel.split(' ')[0];
-        renderProducts();
-        updateStats();
-    });
-
-    // Demand Range Slider
-    const demandRange = document.getElementById('demandRange');
-    demandRange.addEventListener('input', (e) => {
-        currentSurgePercent = parseInt(e.target.value);
-        document.getElementById('surgePercentage').innerText = `+${currentSurgePercent}%`;
-        renderProducts();
-        updateStats();
-    });
-
     // Category Filter
     const filterCategory = document.getElementById('filterCategory');
     filterCategory.addEventListener('change', () => {
         renderProducts();
     });
 
-    // Image Upload Preview
+    // Image Upload & Preview Handler
     const imageInput = document.getElementById('imageInput');
     const uploadPlaceholder = document.getElementById('uploadPlaceholder');
     const previewContainer = document.getElementById('previewContainer');
@@ -131,13 +105,13 @@ function setupEventListeners() {
             category,
             baseRate,
             unit,
-            description: description || 'No extra description provided.',
+            description: description || 'No additional details provided.',
             imageUrl: uploadedImageDataUrl || 'public/assets/logo.jpg'
         };
 
         products.unshift(newProduct);
 
-        // Reset form
+        // Reset form & upload zone
         productForm.reset();
         removeImgBtn.click();
         
@@ -148,9 +122,6 @@ function setupEventListeners() {
 
 function updateStats() {
     document.getElementById('statTotalProducts').innerText = products.length;
-    
-    const combinedMultiplier = (currentSeasonFactor * (1 + currentSurgePercent / 100)).toFixed(2);
-    document.getElementById('statDemandMultiplier').innerText = `${combinedMultiplier}x`;
 }
 
 function renderProducts() {
@@ -163,30 +134,21 @@ function renderProducts() {
 
     if (filtered.length === 0) {
         grid.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #94a3b8;">
-                <i class="fa-solid fa-folder-open" style="font-size: 3rem; margin-bottom: 1rem; color: var(--brand-gold);"></i>
-                <p>No products found in this category.</p>
+            <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #64748b;">
+                <i class="fa-solid fa-folder-open" style="font-size: 3rem; margin-bottom: 1rem; color: var(--brand-emerald);"></i>
+                <p style="font-size: 1.1rem; font-weight: 600;">No products found in this category.</p>
             </div>
         `;
         return;
     }
 
     filtered.forEach(p => {
-        // Calculate Effective Dynamic Price
-        const surgeMultiplier = 1 + (currentSurgePercent / 100);
-        const effectiveRate = Math.round(p.baseRate * currentSeasonFactor * surgeMultiplier);
-
-        const totalSurgePercent = Math.round(((effectiveRate - p.baseRate) / p.baseRate) * 100);
-
         const card = document.createElement('div');
         card.className = 'product-card';
         card.innerHTML = `
             <div class="card-img-wrapper">
                 <img src="${p.imageUrl}" alt="${p.title}" class="card-img" onerror="this.src='public/assets/logo.jpg'">
                 <span class="category-tag">${p.category}</span>
-                ${totalSurgePercent !== 0 ? `
-                    <span class="surge-tag">${totalSurgePercent > 0 ? '+' : ''}${totalSurgePercent}% Rate Adjustment</span>
-                ` : ''}
             </div>
 
             <div class="card-body">
@@ -194,14 +156,10 @@ function renderProducts() {
                 <p class="product-details">${p.description}</p>
                 
                 <div class="price-box">
-                    <div class="base-price-info">
-                        <span class="base-price-label">Base Rate</span>
-                        <span class="base-price-val">₹${p.baseRate.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div style="text-align: right;">
-                        <span class="base-price-label">Active Price</span>
-                        <div class="effective-price">
-                            ₹${effectiveRate.toLocaleString('en-IN')}
+                    <div>
+                        <span class="rate-label">Product Rate</span>
+                        <div class="rate-value">
+                            ₹${p.baseRate.toLocaleString('en-IN')}
                             <span class="unit-label">/${p.unit.replace('per ', '')}</span>
                         </div>
                     </div>
@@ -209,7 +167,7 @@ function renderProducts() {
 
                 <div class="card-actions">
                     <button type="button" class="btn-action" onclick="quickUpdatePrice('${p.id}')">
-                        <i class="fa-solid fa-pen-to-square"></i> Edit Base Rate
+                        <i class="fa-solid fa-pen-to-square"></i> Edit Rate
                     </button>
                     <button type="button" class="btn-action btn-delete" onclick="deleteProduct('${p.id}')">
                         <i class="fa-solid fa-trash"></i> Delete
@@ -222,7 +180,7 @@ function renderProducts() {
 }
 
 function deleteProduct(id) {
-    if (confirm('Are you sure you want to remove this product from catalog?')) {
+    if (confirm('Are you sure you want to remove this product from the catalog?')) {
         products = products.filter(p => p.id !== id);
         renderProducts();
         updateStats();
@@ -233,7 +191,7 @@ function quickUpdatePrice(id) {
     const prod = products.find(p => p.id === id);
     if (!prod) return;
 
-    const newRate = prompt(`Update Base Rate (₹) for "${prod.title}":`, prod.baseRate);
+    const newRate = prompt(`Update Rate (₹) for "${prod.title}":`, prod.baseRate);
     if (newRate && !isNaN(newRate) && parseFloat(newRate) > 0) {
         prod.baseRate = parseFloat(newRate);
         renderProducts();
