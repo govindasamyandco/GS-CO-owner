@@ -1,4 +1,9 @@
-// Sample Products Data
+// ==========================================================================
+// Govindasamy & Co - Admin App JavaScript
+// Connected to Live Firebase Firestore & Storage (Server Architecture)
+// ==========================================================================
+
+// Sample Fallback Data if Firestore is offline
 let products = [
     {
         id: 'p1',
@@ -58,7 +63,7 @@ function initAuthAndApp() {
     setupAuthListeners();
     setupEventListeners();
 
-    // Check if session already logged in
+    // Check session
     const isLoggedIn = sessionStorage.getItem('admin_logged_in') === 'true';
     if (isLoggedIn) {
         showDashboard();
@@ -68,7 +73,7 @@ function initAuthAndApp() {
 }
 
 /* ==========================================================================
-   1. AUTHENTICATION (LOGIN / LOGOUT) HANDLERS
+   1. AUTHENTICATION HANDLERS
    ========================================================================== */
 function setupAuthListeners() {
     const loginForm = document.getElementById('loginForm');
@@ -78,7 +83,6 @@ function setupAuthListeners() {
     const logoutBtn = document.getElementById('logoutBtn');
     const forgotPassBtn = document.getElementById('forgotPassBtn');
 
-    // Toggle Password Visibility
     togglePasswordBtn.addEventListener('click', () => {
         if (adminPasswordInput.type === 'password') {
             adminPasswordInput.type = 'text';
@@ -91,23 +95,18 @@ function setupAuthListeners() {
         }
     });
 
-    // Forgot Password Alert
     forgotPassBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        alert('Password reset instructions have been sent to your registered admin email: govindasamy.textitle@gmail.com');
+        alert('Password reset instructions sent to registered admin email: govindasamy.textitle@gmail.com');
     });
 
-    // Login Form Submit
     loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const email = document.getElementById('adminEmail').value.trim();
         const password = adminPasswordInput.value;
 
-        // Basic verification (Can connect to Firebase Auth)
         if (email && password.length >= 4) {
             loginError.classList.add('hidden');
-            
-            // Extract username before @
             const username = email.split('@')[0];
             sessionStorage.setItem('admin_logged_in', 'true');
             sessionStorage.setItem('admin_username', username);
@@ -119,7 +118,6 @@ function setupAuthListeners() {
         }
     });
 
-    // Logout Button
     logoutBtn.addEventListener('click', () => {
         if (confirm('Are you sure you want to log out of Admin Portal?')) {
             sessionStorage.removeItem('admin_logged_in');
@@ -145,7 +143,6 @@ function showLogin() {
     document.getElementById('loginWrapper').classList.remove('hidden');
 }
 
-
 /* ==========================================================================
    2. PRODUCT FORM & CATALOG MANAGEMENT
    ========================================================================== */
@@ -162,7 +159,6 @@ function setupEventListeners() {
     const bundlePiecesInput = document.getElementById('bundlePieces');
     const minOrderTextInput = document.getElementById('minOrderText');
 
-    // Auto-update Unit Notice & Pieces Group based on selected Unit
     unitTypeSelect.addEventListener('change', (e) => {
         const val = e.target.value;
         if (val === 'per Bundle') {
@@ -189,7 +185,6 @@ function setupEventListeners() {
         }
     });
 
-    // Show/Hide New Category Input when "+ Create New Category..." is selected
     productCategorySelect.addEventListener('change', (e) => {
         if (e.target.value === 'NEW_CATEGORY') {
             newCategoryBox.classList.remove('hidden');
@@ -199,7 +194,6 @@ function setupEventListeners() {
         }
     });
 
-    // Save New Category Handler
     saveCategoryBtn.addEventListener('click', () => {
         addNewCategory();
     });
@@ -232,10 +226,8 @@ function setupEventListeners() {
             return;
         }
 
-        // Add to array
         categories.push(catName);
 
-        // Add option to Product Form Dropdown
         const newOptionForm = document.createElement('option');
         newOptionForm.value = catName;
         newOptionForm.textContent = catName;
@@ -243,13 +235,11 @@ function setupEventListeners() {
         const lastOption = productCategorySelect.options[productCategorySelect.options.length - 1];
         productCategorySelect.insertBefore(newOptionForm, lastOption);
 
-        // Add option to Filter Dropdown
         const newOptionFilter = document.createElement('option');
         newOptionFilter.value = catName;
         newOptionFilter.textContent = catName;
         filterCategorySelect.appendChild(newOptionFilter);
 
-        // Select the new category
         productCategorySelect.value = catName;
         newCategoryInput.value = '';
         newCategoryBox.classList.add('hidden');
@@ -257,12 +247,10 @@ function setupEventListeners() {
         alert(`New Category "${catName}" created and selected!`);
     }
 
-    // Category Filter Change
     filterCategorySelect.addEventListener('change', () => {
         renderProducts();
     });
 
-    // Image Upload & Preview Handler
     const imageInput = document.getElementById('imageInput');
     const uploadPlaceholder = document.getElementById('uploadPlaceholder');
     const previewContainer = document.getElementById('previewContainer');
@@ -292,7 +280,6 @@ function setupEventListeners() {
         uploadPlaceholder.classList.remove('hidden');
     });
 
-    // Product Form Submission
     const productForm = document.getElementById('productForm');
     productForm.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -325,7 +312,6 @@ function setupEventListeners() {
 
         products.unshift(newProduct);
 
-        // Reset form & upload zone
         productForm.reset();
         bundlePiecesGroup.classList.add('hidden');
         removeImgBtn.click();
@@ -378,7 +364,6 @@ function renderProducts() {
                 <h3 class="product-title">${p.title}</h3>
                 <p class="product-details">${p.description}</p>
 
-                <!-- Customer Purchase Rule Notice -->
                 <div class="purchase-rule-box">
                     <i class="fa-solid fa-circle-info"></i>
                     <span>${p.minOrderNotice || (isBulkUnit ? `Must be purchased per ${p.unit.replace('per ', '')} (${p.bundlePieces} Pcs)` : 'Available for single piece purchase')}</span>
