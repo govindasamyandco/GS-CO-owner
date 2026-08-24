@@ -1,10 +1,4 @@
-// Govindasamy & Co - Admin App Logic (100% Firebase Firestore & Cloud Storage Integrated)
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, getDocs, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-// Firebase Configuration
+// Govindasamy & Co - Admin App Logic (Firebase Compat SDK for Guaranteed Execution)
 const firebaseConfig = {
     apiKey: "AIzaSyDvjfa-nhsPwYGUn1BcAv6ukXiFwmaa9ks",
     authDomain: "govindasamyandco.firebaseapp.com",
@@ -16,10 +10,13 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const storage = getStorage(app);
-const auth = getAuth(app);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+
+const db = firebase.firestore();
+const storage = firebase.storage();
+const auth = firebase.auth();
 
 // State Variables
 let products = [];
@@ -109,44 +106,40 @@ function setupAuthHandlers() {
         }
     });
 
-    // Check Auth State
-    onAuthStateChanged(auth, (user) => {
-        if (user || localStorage.getItem('gsco_admin_logged_in') === 'true') {
-            loginWrapper.classList.add('hidden');
-            dashboardContainer.classList.remove('hidden');
-        } else {
-            loginWrapper.classList.remove('hidden');
-            dashboardContainer.classList.add('hidden');
-        }
-    });
+    // Check Local Session
+    if (localStorage.getItem('gsco_admin_logged_in') === 'true') {
+        loginWrapper.classList.add('hidden');
+        dashboardContainer.classList.remove('hidden');
+    }
 
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('adminEmail').value.trim();
         const password = document.getElementById('adminPassword').value.trim();
 
+        // Direct Login Verification for Admin
+        if (email === "govindasamy.textitle@gmail.com" && (password === "admin123" || password === "govindasamy123")) {
+            localStorage.setItem('gsco_admin_logged_in', 'true');
+            loginWrapper.classList.add('hidden');
+            dashboardContainer.classList.remove('hidden');
+            return;
+        }
+
         try {
-            // Firebase Auth or Admin Credentials fallback
-            if (email === "govindasamy.textitle@gmail.com" && (password === "admin123" || password === "govindasamy123")) {
-                localStorage.setItem('gsco_admin_logged_in', 'true');
-                loginWrapper.classList.add('hidden');
-                dashboardContainer.classList.remove('hidden');
-            } else {
-                await signInWithEmailAndPassword(auth, email, password);
-                localStorage.setItem('gsco_admin_logged_in', 'true');
-                loginWrapper.classList.add('hidden');
-                dashboardContainer.classList.remove('hidden');
-            }
+            await auth.signInWithEmailAndPassword(email, password);
+            localStorage.setItem('gsco_admin_logged_in', 'true');
+            loginWrapper.classList.add('hidden');
+            dashboardContainer.classList.remove('hidden');
         } catch (error) {
             console.error("Login Auth Failed:", error);
             loginError.classList.remove('hidden');
-            document.getElementById('loginErrorText').innerText = 'Invalid credentials or connection error.';
+            document.getElementById('loginErrorText').innerText = 'Invalid credentials. Please try again.';
         }
     });
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.removeItem('gsco_admin_logged_in');
-        signOut(auth);
+        auth.signOut();
         loginWrapper.classList.remove('hidden');
         dashboardContainer.classList.add('hidden');
     });
@@ -156,16 +149,15 @@ function setupAuthHandlers() {
    2. FIRESTORE REALTIME DATABASE LISTENER
    ========================================================================== */
 function setupFirestoreRealtimeListener() {
-    const productsRef = collection(db, "products");
+    const productsRef = db.collection("products");
 
-    onSnapshot(productsRef, async (snapshot) => {
-        // If Firestore products collection is empty on first run, seed initial products!
+    productsRef.onSnapshot(async (snapshot) => {
         if (snapshot.empty) {
             console.log("Firestore empty. Seeding initial mat products...");
             for (const item of initialSeedProducts) {
-                await addDoc(productsRef, {
+                await productsRef.add({
                     ...item,
-                    createdAt: serverTimestamp()
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
             }
             return;
@@ -227,8 +219,7 @@ function setupFormHandlers() {
     document.getElementById('saveCategoryBtn').addEventListener('click', async () => {
         const newCat = document.getElementById('newCategoryInput').value.trim();
         if (newCat) {
-            // Save category to Firestore
-            await addDoc(collection(db, "categories"), { name: newCat, createdAt: serverTimestamp() });
+            await db.collection("categories").add({ name: newCat, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
             
             const newOption = document.createElement('option');
             newOption.value = newCat;
@@ -290,19 +281,17 @@ function setupFormHandlers() {
 
         let imageUrl = 'public/assets/logo.jpg';
 
-        // If an image was selected, upload to Firebase Storage or Base64 fallback
         if (selectedImageFile) {
             try {
-                const storageRef = ref(storage, `product-images/${Date.now()}_${selectedImageFile.name}`);
-                await uploadBytes(storageRef, selectedImageFile);
-                imageUrl = await getDownloadURL(storageRef);
+                const storageRef = storage.ref(`product-images/${Date.now()}_${selectedImageFile.name}`);
+                await storageRef.put(selectedImageFile);
+                imageUrl = await storageRef.getDownloadURL();
             } catch (err) {
                 console.warn("Storage upload fallback to DataURL:", err);
                 imageUrl = imagePreview.src;
             }
         }
 
-        // Calculate standard bundles per pack & compressibility
         let bundlesPerPack = 8;
         if (category === 'Export Mat') bundlesPerPack = 10;
         if (category === 'Long Mat') bundlesPerPack = 4;
@@ -319,11 +308,11 @@ function setupFormHandlers() {
             minOrderNotice: minOrder,
             description: desc,
             imageUrl: imageUrl,
-            createdAt: serverTimestamp()
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
         try {
-            await addDoc(collection(db, "products"), newProduct);
+            await db.collection("products").add(newProduct);
             alert(`Product "${name}" uploaded successfully to Firebase!`);
             document.getElementById('productForm').reset();
             document.getElementById('removeImgBtn').click();
@@ -407,7 +396,7 @@ function updateAdminStats() {
 window.deleteFirestoreProduct = async function(id) {
     if (confirm("Are you sure you want to delete this product from Firebase?")) {
         try {
-            await deleteDoc(doc(db, "products", id));
+            await db.collection("products").doc(id).delete();
             alert("Product deleted from Firebase!");
         } catch (err) {
             console.error("Firestore Delete Error:", err);
