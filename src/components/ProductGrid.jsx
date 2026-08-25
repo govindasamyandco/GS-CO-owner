@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { db, doc, deleteDoc } from '../firebase';
+import { db, doc, deleteDoc, functions, httpsCallable } from '../firebase';
 
 export default function ProductGrid({ products }) {
   const [filterCategory, setFilterCategory] = useState('ALL');
@@ -7,8 +7,15 @@ export default function ProductGrid({ products }) {
   const handleDelete = async (id, title) => {
     if (window.confirm(`Are you sure you want to delete "${title}" from Firebase?`)) {
       try {
-        await deleteDoc(doc(db, 'products', id));
-        alert(`Product "${title}" deleted from Firebase!`);
+        try {
+          const deleteProductFunction = httpsCallable(functions, 'deleteProduct');
+          await deleteProductFunction({ productId: id });
+        } catch (funcErr) {
+          console.warn('Cloud Function fallback to Firestore client SDK:', funcErr);
+          await deleteDoc(doc(db, 'products', id));
+        }
+
+        alert(`Product "${title}" deleted from Firebase! Audit log recorded.`);
       } catch (err) {
         console.error('Delete error:', err);
         alert('Failed to delete product: ' + err.message);

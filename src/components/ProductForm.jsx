@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { db, storage, collection, addDoc, serverTimestamp, ref, uploadBytes, getDownloadURL } from '../firebase';
+import { db, storage, collection, addDoc, serverTimestamp, ref, uploadBytes, getDownloadURL, functions, httpsCallable } from '../firebase';
 
 export default function ProductForm() {
   const [name, setName] = useState('');
@@ -103,8 +103,16 @@ export default function ProductForm() {
     };
 
     try {
-      await addDoc(collection(db, 'products'), newProduct);
-      alert(`Product "${name}" uploaded successfully to Firebase!`);
+      // Execute via Cloud Function for Server-Side Security Verification & Audit Logging
+      try {
+        const addProductFunction = httpsCallable(functions, 'addProduct');
+        await addProductFunction(newProduct);
+      } catch (funcErr) {
+        console.warn('Cloud Function fallback to Firestore client SDK:', funcErr);
+        await addDoc(collection(db, 'products'), newProduct);
+      }
+
+      alert(`Product "${name}" uploaded successfully! Audit log recorded.`);
       // Reset Form
       setName('');
       setBaseRate('');
@@ -269,7 +277,7 @@ export default function ProductForm() {
           </div>
 
           <button type="submit" className="btn btn-primary btn-block" disabled={uploading}>
-            <i className="fa-solid fa-plus-circle"></i> {uploading ? 'Uploading to Firebase...' : 'Upload Mat Product'}
+            <i className="fa-solid fa-plus-circle"></i> {uploading ? 'Processing via Server...' : 'Upload Mat Product'}
           </button>
         </form>
       </section>

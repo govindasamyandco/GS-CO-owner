@@ -4,6 +4,7 @@ import Login from './components/Login';
 import Header from './components/Header';
 import ProductForm from './components/ProductForm';
 import ProductGrid from './components/ProductGrid';
+import AuditLogs from './components/AuditLogs';
 import './styles.css';
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
       <main className="main-layout">
         <ProductForm />
         <ProductGrid products={products} />
+        <AuditLogs />
       </main>
     </div>
   );
