@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth, signInWithEmailAndPassword } from '../firebase';
 import { generateTotpSecret, verifyTotpCode } from '../utils/totpHelper';
+import { RateLimiter, sanitizeInput } from '../utils/security';
 import MfaEnrollment from './MfaEnrollment';
+
+const limiter = new RateLimiter(5, 300); // 5 max attempts, 300s (5-minute) lockout
 
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('govindasamy.textitle@gmail.com');
@@ -17,23 +20,57 @@ export default function Login({ onLoginSuccess }) {
   
   const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [lockoutSecs, setLockoutSecs] = useState(0);
 
-  // Step 1: Email & Password Validation
+  // Check Lockout Status on Render & Timer
+  useEffect(() => {
+    const checkLock = () => {
+      const lockStatus = limiter.isLockedOut();
+      if (lockStatus.locked) {
+        setLockoutSecs(lockStatus.remainingSecs);
+      } else {
+        setLockoutSecs(0);
+      }
+    };
+
+    checkLock();
+    const interval = setInterval(checkLock, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Step 1: Email & Password Validation with Rate Limiting
   const handlePrimaryAuth = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (email === 'govindasamy.textitle@gmail.com' && (password === 'admin123' || password === 'govindasamy123')) {
+    const lockStatus = limiter.isLockedOut();
+    if (lockStatus.locked) {
+      setErrorMsg(`⚠️ Too many failed attempts. Security lockout active for ${lockStatus.remainingSecs} seconds.`);
+      return;
+    }
+
+    const cleanEmail = sanitizeInput(email);
+
+    if (cleanEmail === 'govindasamy.textitle@gmail.com' && (password === 'admin123' || password === 'govindasamy123')) {
+      limiter.resetAttempts();
       setStep(2); // Advance to 6-digit TOTP MFA step
       return;
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, cleanEmail, password);
+      limiter.resetAttempts();
       setStep(2); // Advance to 6-digit TOTP MFA step
     } catch (err) {
       console.error('Primary auth error:', err);
-      setErrorMsg('Invalid admin credentials. Please check your email and password.');
+      const updatedRecord = limiter.recordFailedAttempt();
+      const remainingTries = Math.max(0, 5 - updatedRecord.attempts);
+
+      if (remainingTries === 0) {
+        setErrorMsg('🚨 5 Failed attempts exceeded! Account locked for 5 minutes (300 seconds).');
+      } else {
+        setErrorMsg(`Invalid credentials. ${remainingTries} attempt(s) remaining before security lockout.`);
+      }
     }
   };
 
@@ -42,12 +79,26 @@ export default function Login({ onLoginSuccess }) {
     e.preventDefault();
     setErrorMsg('');
 
+    const lockStatus = limiter.isLockedOut();
+    if (lockStatus.locked) {
+      setErrorMsg(`⚠️ Security lockout active for ${lockStatus.remainingSecs} seconds.`);
+      return;
+    }
+
     const isValid = await verifyTotpCode(totpSecret, totpCode);
 
     if (isValid) {
+      limiter.resetAttempts();
       onLoginSuccess();
     } else {
-      setErrorMsg('Invalid 6-digit TOTP security code. Please check your Google Authenticator or Authy app on your phone.');
+      const updatedRecord = limiter.recordFailedAttempt();
+      const remainingTries = Math.max(0, 5 - updatedRecord.attempts);
+
+      if (remainingTries === 0) {
+        setErrorMsg('🚨 5 Failed MFA attempts! Account locked for 5 minutes (300 seconds).');
+      } else {
+        setErrorMsg(`Invalid 6-digit TOTP code. ${remainingTries} attempt(s) remaining.`);
+      }
     }
   };
 
@@ -69,7 +120,19 @@ export default function Login({ onLoginSuccess }) {
           </p>
         </div>
 
-        {step === 1 ? (
+        {lockoutSecs > 0 ? (
+          <div style={{ background: '#fef2f2', border: '2px solid #fca5a5', borderRadius: '12px', padding: '1.5rem', textAlign: 'center', margin: '1rem 0' }}>
+            <i className="fa-solid fa-user-lock" style={{ fontSize: '2.8rem', color: '#b91c1c', marginBottom: '0.6rem' }}></i>
+            <h3 style={{ color: '#991b1b', fontFamily: 'Outfit, sans-serif', fontSize: '1.25rem' }}>Security Cooldown Lockout</h3>
+            <p style={{ fontSize: '0.85rem', color: '#7f1d1d', marginTop: '0.3rem' }}>
+              Too many failed login attempts detected. Login is locked for rate-limiting protection.
+            </p>
+            <div style={{ marginTop: '1rem', background: '#ffffff', padding: '0.5rem 1rem', borderRadius: '8px', display: 'inline-block', border: '1px solid #fca5a5' }}>
+              <span style={{ fontSize: '0.75rem', color: '#991b1b', fontWeight: 600 }}>Unlocks in: </span>
+              <strong style={{ fontSize: '1.2rem', color: '#b91c1c' }}>{lockoutSecs} seconds</strong>
+            </div>
+          </div>
+        ) : step === 1 ? (
           /* STEP 1: EMAIL & PASSWORD FORM */
           <form className="login-form" onSubmit={handlePrimaryAuth}>
             <div className="form-group">
@@ -117,7 +180,7 @@ export default function Login({ onLoginSuccess }) {
             </button>
           </form>
         ) : (
-          /* STEP 2: 6-DIGIT TOTP SECURITY CODE FORM (NO ON-SCREEN CODE - SECURED TO PHONE APP) */
+          /* STEP 2: 6-DIGIT TOTP SECURITY CODE FORM */
           <form className="login-form" onSubmit={handleTotpVerify}>
             <div className="form-group" style={{ textAlign: 'center' }}>
               <label style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--brand-navy)' }}>
@@ -174,8 +237,8 @@ export default function Login({ onLoginSuccess }) {
         )}
 
         <div className="login-footer">
-          <p><i className="fa-solid fa-shield-halved"></i> 2-Factor Smartphone Security Active</p>
-          <span className="version-tag">Govindasamy & Co v2.0 • Secured via Authenticator App</span>
+          <p><i className="fa-solid fa-shield-halved"></i> Rate Limited & TOTP Protected</p>
+          <span className="version-tag">Govindasamy & Co v2.0 • Max 5 Tries / 5-Min Cooldown</span>
         </div>
       </div>
 
