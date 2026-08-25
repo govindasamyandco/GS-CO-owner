@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { auth, signInWithEmailAndPassword } from '../firebase';
-import { generateTotpSecret, verifyTotpCode, generateTotpCode, getRemainingTotpSeconds } from '../utils/totpHelper';
+import { generateTotpSecret, verifyTotpCode } from '../utils/totpHelper';
 import MfaEnrollment from './MfaEnrollment';
 
 export default function Login({ onLoginSuccess }) {
@@ -17,22 +17,6 @@ export default function Login({ onLoginSuccess }) {
   
   const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [liveHintCode, setLiveHintCode] = useState('');
-  const [remainingSecs, setRemainingSecs] = useState(getRemainingTotpSeconds());
-
-  useEffect(() => {
-    if (step === 2) {
-      let timer;
-      const updateTimer = async () => {
-        const live = await generateTotpCode(totpSecret);
-        setLiveHintCode(live);
-        setRemainingSecs(getRemainingTotpSeconds());
-      };
-      updateTimer();
-      timer = setInterval(updateTimer, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [step, totpSecret]);
 
   // Step 1: Email & Password Validation
   const handlePrimaryAuth = async (e) => {
@@ -53,7 +37,7 @@ export default function Login({ onLoginSuccess }) {
     }
   };
 
-  // Step 2: 6-Digit TOTP MFA Verification (Rotates every 30 seconds)
+  // Step 2: 6-Digit TOTP MFA Verification (Only verified from your smartphone App!)
   const handleTotpVerify = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -63,7 +47,7 @@ export default function Login({ onLoginSuccess }) {
     if (isValid) {
       onLoginSuccess();
     } else {
-      setErrorMsg('Invalid 6-digit TOTP security code. Please check your Google Authenticator / Authy app.');
+      setErrorMsg('Invalid 6-digit TOTP security code. Please check your Google Authenticator or Authy app on your phone.');
     }
   };
 
@@ -71,7 +55,7 @@ export default function Login({ onLoginSuccess }) {
     localStorage.setItem('gsco_admin_totp_secret', newSecret);
     setTotpSecret(newSecret);
     setShowEnrollmentModal(false);
-    alert('Authenticator app setup complete! Use the 6-digit code from Google Authenticator to log in.');
+    alert('✅ Authenticator app setup complete! Scan succeeded. Use the 6-digit code from Google Authenticator on your phone to log in.');
   };
 
   return (
@@ -133,40 +117,28 @@ export default function Login({ onLoginSuccess }) {
             </button>
           </form>
         ) : (
-          /* STEP 2: 6-DIGIT TOTP SECURITY CODE FORM */
+          /* STEP 2: 6-DIGIT TOTP SECURITY CODE FORM (NO ON-SCREEN CODE - SECURED TO PHONE APP) */
           <form className="login-form" onSubmit={handleTotpVerify}>
             <div className="form-group" style={{ textAlign: 'center' }}>
               <label style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--brand-navy)' }}>
-                <i className="fa-solid fa-mobile-retro" style={{ color: 'var(--brand-emerald)', marginRight: '0.4rem' }}></i>
-                Enter 6-Digit Code from Authenticator App
+                <i className="fa-solid fa-mobile-screen-button" style={{ color: 'var(--brand-emerald)', marginRight: '0.4rem', fontSize: '1.2rem' }}></i>
+                Enter 6-Digit Security Code
               </label>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '0.85rem' }}>
-                Open Google Authenticator or Authy to get your 6-digit code (changes every 30 seconds).
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.3rem', marginBottom: '1rem' }}>
+                Open <strong>Google Authenticator</strong> or <strong>Authy</strong> on your smartphone to view your live 6-digit code.
               </p>
 
               <input
                 type="text"
                 className="form-control"
-                placeholder="123456"
+                placeholder="000 000"
                 maxLength="6"
                 value={totpCode}
                 onChange={(e) => setTotpCode(e.target.value)}
-                style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '6px', fontWeight: 800, color: 'var(--brand-navy)' }}
+                style={{ textAlign: 'center', fontSize: '1.6rem', letterSpacing: '8px', fontWeight: 800, color: 'var(--brand-navy)', padding: '0.8rem' }}
                 autoFocus
                 required
               />
-            </div>
-
-            {/* Live 30s Hint Box for Convenience */}
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.6rem 0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>30s Changing Live Code:</span>
-                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--brand-emerald)', letterSpacing: '2px' }}>{liveHintCode}</span>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Timer:</span>
-                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--brand-gold)', display: 'block' }}>{remainingSecs}s</span>
-              </div>
             </div>
 
             {errorMsg && (
@@ -177,10 +149,10 @@ export default function Login({ onLoginSuccess }) {
             )}
 
             <button type="submit" className="btn btn-primary btn-block btn-login">
-              <i className="fa-solid fa-shield-check"></i> Verify 6-Digit Code & Access Admin
+              <i className="fa-solid fa-shield-check"></i> Verify Code & Access Admin
             </button>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem' }}>
               <button type="button" className="forgot-pass-link" onClick={() => setStep(1)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}>
                 <i className="fa-solid fa-arrow-left"></i> Back to Password
               </button>
@@ -195,15 +167,15 @@ export default function Login({ onLoginSuccess }) {
                 }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--brand-gold)' }}
               >
-                <i className="fa-solid fa-qrcode"></i> Setup Google Authenticator QR
+                <i className="fa-solid fa-qrcode"></i> Scan QR with Phone
               </button>
             </div>
           </form>
         )}
 
         <div className="login-footer">
-          <p><i className="fa-solid fa-shield-halved"></i> 2-Factor 30s TOTP Security Active</p>
-          <span className="version-tag">Govindasamy & Co v2.0 • Enterprise TOTP Protected</span>
+          <p><i className="fa-solid fa-shield-halved"></i> 2-Factor Smartphone Security Active</p>
+          <span className="version-tag">Govindasamy & Co v2.0 • Secured via Authenticator App</span>
         </div>
       </div>
 
