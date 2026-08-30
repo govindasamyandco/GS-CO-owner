@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { auth, signInWithEmailAndPassword } from '../firebase';
 import { generateTotpSecret, verifyTotpCode } from '../utils/totpHelper';
 import { RateLimiter, sanitizeInput } from '../utils/security';
+import { verifyBiometricFingerprint } from '../utils/biometricHelper';
 import MfaEnrollment from './MfaEnrollment';
 
 const limiter = new RateLimiter(5, 300); // 5 max attempts, 300s (5-minute) lockout
@@ -21,22 +22,7 @@ export default function Login({ onLoginSuccess }) {
   const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [lockoutSecs, setLockoutSecs] = useState(0);
-
-  // Check Lockout Status on Render & Timer
-  useEffect(() => {
-    const checkLock = () => {
-      const lockStatus = limiter.isLockedOut();
-      if (lockStatus.locked) {
-        setLockoutSecs(lockStatus.remainingSecs);
-      } else {
-        setLockoutSecs(0);
-      }
-    };
-
-    checkLock();
-    const interval = setInterval(checkLock, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const [authenticatingBiometric, setAuthenticatingBiometric] = useState(false);
 
   // Step 1: Email & Password Validation with Rate Limiting
   const handlePrimaryAuth = async (e) => {
@@ -74,7 +60,7 @@ export default function Login({ onLoginSuccess }) {
     }
   };
 
-  // Step 2: 6-Digit TOTP MFA Verification (Only verified from your smartphone App!)
+  // Step 2: 6-Digit TOTP MFA Verification
   const handleTotpVerify = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -102,11 +88,33 @@ export default function Login({ onLoginSuccess }) {
     }
   };
 
+  // FINGERPRINT / BIOMETRIC PROTECTED QR CODE ACCESS
+  const handleOpenQrWithBiometrics = async () => {
+    setErrorMsg('');
+    setAuthenticatingBiometric(true);
+
+    try {
+      const bioResult = await verifyBiometricFingerprint();
+      if (bioResult.success) {
+        const newSec = generateTotpSecret();
+        setTotpSecret(newSec);
+        setShowEnrollmentModal(true);
+      } else {
+        setErrorMsg('🚫 Fingerprint / Biometric authorization failed. QR setup access denied!');
+      }
+    } catch (err) {
+      console.error('Biometric verification error:', err);
+      setErrorMsg('🚫 Fingerprint verification canceled or rejected.');
+    } finally {
+      setAuthenticatingBiometric(false);
+    }
+  };
+
   const handleEnrollmentComplete = (newSecret) => {
     localStorage.setItem('gsco_admin_totp_secret', newSecret);
     setTotpSecret(newSecret);
     setShowEnrollmentModal(false);
-    alert('✅ Authenticator app setup complete! Scan succeeded. Use the 6-digit code from Google Authenticator on your phone to log in.');
+    alert('✅ Authenticator setup complete! Use the 6-digit code from Google Authenticator on your phone to log in.');
   };
 
   return (
@@ -220,25 +228,24 @@ export default function Login({ onLoginSuccess }) {
                 <i className="fa-solid fa-arrow-left"></i> Back to Password
               </button>
 
+              {/* FINGERPRINT PROTECTED QR CODE BUTTON */}
               <button
                 type="button"
                 className="forgot-pass-link"
-                onClick={() => {
-                  const newSec = generateTotpSecret();
-                  setTotpSecret(newSec);
-                  setShowEnrollmentModal(true);
-                }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--brand-gold)' }}
+                onClick={handleOpenQrWithBiometrics}
+                disabled={authenticatingBiometric}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--brand-gold)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
               >
-                <i className="fa-solid fa-qrcode"></i> Scan QR with Phone
+                <i className="fa-solid fa-fingerprint" style={{ color: 'var(--brand-emerald)', fontSize: '0.95rem' }}></i>
+                <span>{authenticatingBiometric ? 'Verifying Fingerprint...' : 'Scan QR with Phone (Fingerprint Required)'}</span>
               </button>
             </div>
           </form>
         )}
 
         <div className="login-footer">
-          <p><i className="fa-solid fa-shield-halved"></i> Rate Limited & TOTP Protected</p>
-          <span className="version-tag">Govindasamy & Co v2.0 • Max 5 Tries / 5-Min Cooldown</span>
+          <p><i className="fa-solid fa-fingerprint"></i> Fingerprint Protected QR Setup</p>
+          <span className="version-tag">Govindasamy & Co v2.0 • Biometric & TOTP Secured</span>
         </div>
       </div>
 
