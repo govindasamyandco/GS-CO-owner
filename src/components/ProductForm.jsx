@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { db, storage, collection, addDoc, serverTimestamp, ref, uploadBytes, getDownloadURL, functions, httpsCallable } from '../firebase';
+import React, { useState, useEffect } from 'react';
+import { db, storage, collection, addDoc, onSnapshot, serverTimestamp, ref, uploadBytes, getDownloadURL, functions, httpsCallable } from '../firebase';
 import { toast } from '../utils/toast';
 
 export default function ProductForm() {
@@ -8,6 +8,20 @@ export default function ProductForm() {
   const [newCatInput, setNewCatInput] = useState('');
   const [showNewCat, setShowNewCat] = useState(false);
   const [customCategories, setCustomCategories] = useState([]);
+
+  // Subscribe to real-time categories from Firestore
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'categories'), (snapshot) => {
+      const cats = snapshot.docs.map((d) => d.data().name).filter(Boolean);
+      if (cats.length > 0) {
+        setCustomCategories((prev) => Array.from(new Set([...prev, ...cats])));
+      }
+    }, (err) => {
+      console.warn('Firestore categories sync notice:', err.message);
+    });
+
+    return () => unsubscribe();
+  }, []);
   
   const [baseRate, setBaseRate] = useState('');
   const [unitType, setUnitType] = useState('per Bundle');
@@ -73,7 +87,7 @@ export default function ProductForm() {
     }
 
     setUploading(true);
-    let imageUrl = 'public/assets/logo.jpg';
+    let imageUrl = '/assets/logo.jpg';
 
     if (imageFile) {
       try {
@@ -323,7 +337,7 @@ export default function ProductForm() {
             ></textarea>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-block" disabled={uploading}>
+          <button type="submit" className="btn-submit-product" disabled={uploading}>
             <i className="fa-solid fa-plus-circle"></i> {uploading ? 'Processing via Server...' : 'Upload Mat Product'}
           </button>
         </form>

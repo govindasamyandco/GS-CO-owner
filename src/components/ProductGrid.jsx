@@ -1,9 +1,25 @@
-import React, { useState } from 'react';
-import { db, storage, doc, deleteDoc, updateDoc, ref, uploadBytes, getDownloadURL, functions, httpsCallable } from '../firebase';
+import React, { useState, useEffect } from 'react';
+import { db, storage, collection, onSnapshot, doc, deleteDoc, updateDoc, ref, uploadBytes, getDownloadURL, functions, httpsCallable } from '../firebase';
 import { toast } from '../utils/toast';
 
 export default function ProductGrid({ products }) {
   const [filterCategory, setFilterCategory] = useState('ALL');
+  const [firestoreCategories, setFirestoreCategories] = useState([]);
+
+  // Subscribe to real-time categories from Firestore
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'categories'), (snapshot) => {
+      const cats = snapshot.docs.map((d) => d.data().name).filter(Boolean);
+      if (cats.length > 0) {
+        setFirestoreCategories(cats);
+      }
+    }, (err) => {
+      console.warn('Firestore categories sync notice:', err.message);
+    });
+
+    return () => unsubscribe();
+  }, []);
+  const [sortOption, setSortOption] = useState('default');
   const [editingProduct, setEditingProduct] = useState(null);
   const [editForm, setEditForm] = useState({
     title: '',
@@ -35,7 +51,7 @@ export default function ProductGrid({ products }) {
       seasonNotice: prod.seasonNotice || 'Price may differ based on the season item or the stock quantity',
       minOrderNotice: prod.minOrderNotice || '',
       description: prod.description || '',
-      imageUrl: prod.imageUrl || '/public/assets/logo.jpg',
+      imageUrl: prod.imageUrl || '/assets/logo.jpg',
       imageFile: null,
       imagePreview: null,
       isDisabled: !!prod.isDisabled
@@ -108,7 +124,6 @@ export default function ProductGrid({ products }) {
     let finalImageUrl = editForm.imageUrl;
 
     try {
-      // 1. Upload new image if selected
       if (editForm.imageFile) {
         try {
           const imageRef = ref(storage, `product-images/${Date.now()}_${editForm.imageFile.name}`);
@@ -142,7 +157,6 @@ export default function ProductGrid({ products }) {
         await updateDoc(doc(db, 'products', editingProduct.id), updatePayload);
       }
 
-      // Update local storage cache & broadcast
       const cached = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
       const updatedList = cached.map(p => p.id === editingProduct.id ? { ...p, ...updatePayload } : p);
       localStorage.setItem('gsco_catalog_products', JSON.stringify(updatedList));
@@ -203,6 +217,20 @@ export default function ProductGrid({ products }) {
     });
   };
 
+  const baseCategories = [
+    { id: 'ALL', label: 'All Products', icon: 'fa-table-cells-large' },
+    { id: 'Panipat Mat', label: 'Panipat Mat', icon: 'fa-layer-group' },
+    { id: 'Export Mat', label: 'Export Mat', icon: 'fa-globe' },
+    { id: 'Local Mat', label: 'Local Mat', icon: 'fa-location-dot' },
+    { id: 'Long Mat', label: 'Long Mat', icon: 'fa-pen-ruler' }
+  ];
+
+  const customTabs = firestoreCategories
+    .filter(catName => !baseCategories.some(b => b.id === catName))
+    .map(catName => ({ id: catName, label: catName, icon: 'fa-rug' }));
+
+  const categories = [...baseCategories, ...customTabs];
+
   // Filter products by category
   const categoryFiltered = products.filter(p => filterCategory === 'ALL' || p.category === filterCategory);
 
@@ -213,7 +241,14 @@ export default function ProductGrid({ products }) {
     if (aDisabled && !bDisabled) return 1;  // a is disabled, move to last
     if (!aDisabled && bDisabled) return -1; // b is disabled, move to last
     
-    // In same disabled state, maintain actual order by creation time
+    if (sortOption === 'price-low') {
+      return a.baseRate - b.baseRate;
+    } else if (sortOption === 'price-high') {
+      return b.baseRate - a.baseRate;
+    } else if (sortOption === 'stock') {
+      return (b.stockQty || 0) - (a.stockQty || 0);
+    }
+
     const aTime = a.createdAt?.seconds || (a.createdAt ? new Date(a.createdAt).getTime() / 1000 : 0);
     const bTime = b.createdAt?.seconds || (b.createdAt ? new Date(b.createdAt).getTime() / 1000 : 0);
     return bTime - aTime;
@@ -221,32 +256,60 @@ export default function ProductGrid({ products }) {
 
   return (
     <section className="catalog-section">
-      <div className="catalog-header card">
-        <div>
-          <h2><i className="fa-solid fa-border-all"></i> Mat Products Catalog</h2>
-          <p>Manage, Edit, Update Rates, Stock Quantities & Seasonal Notices.</p>
+      {/* Category Navigation Bar matching Reference Layout */}
+      <div className="catalog-nav-bar">
+        <div className="category-tabs-group">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              className={`tab-btn-pill ${filterCategory === cat.id ? 'active' : ''}`}
+              onClick={() => setFilterCategory(cat.id)}
+            >
+              <i className={`fa-solid ${cat.icon}`}></i>
+              <span>{cat.label}</span>
+            </button>
+          ))}
         </div>
-        <div className="catalog-filters">
+      </div>
+
+      {/* Straight-line Section Heading & Modern Sort By */}
+      <div className="catalog-section-header-row">
+        <h2 className="catalog-section-title">
+          {filterCategory === 'ALL' ? 'All Mat Products' : filterCategory} (Admin Management)
+        </h2>
+
+        <div className="straight-line-sort-box">
+          <label htmlFor="admin-sort-select" className="sort-label">
+            <i className="fa-solid fa-arrow-down-short-wide"></i> Sort By:
+          </label>
           <select
-            className="filter-select"
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
+            id="admin-sort-select"
+            className="sort-dropdown-modern"
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value)}
           >
-            <option value="ALL">All Categories</option>
-            <option value="Panipat Mat">Panipat Mat</option>
-            <option value="Export Mat">Export Mat</option>
-            <option value="Local Mat">Local Mat</option>
-            <option value="Long Mat">Long Mat</option>
+            <option value="default">Default Order</option>
+            <option value="price-low">Price: Low to High</option>
+            <option value="price-high">Price: High to Low</option>
+            <option value="stock">Stock Quantity</option>
           </select>
         </div>
       </div>
 
-      <div className="product-grid">
+      <div className="pricing-notice-box">
+        <i className="fa-solid fa-circle-info"></i>
+        <span>
+          <strong>Wholesale Pricing Notice:</strong> Quoted rates are factory standard wholesale rates. Final rates may vary based on order quantity, destination & delivery terms.
+        </span>
+      </div>
+
+      <div className="product-cards-grid">
         {sortedProducts.length === 0 ? (
-          <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '3rem', color: '#64748b' }}>
-            <i className="fa-solid fa-folder-open" style={{ fontSize: '3rem', color: 'var(--brand-emerald)', marginBottom: '1rem' }}></i>
+          <div className="no-products-box">
+            <i className="fa-solid fa-boxes-stacked"></i>
             <h3>No Mat Products Found</h3>
-            <p>Upload a product using the form on the left.</p>
+            <p>Upload a product using the form above or on the left.</p>
           </div>
         ) : (
           sortedProducts.map((p) => {
@@ -257,105 +320,95 @@ export default function ProductGrid({ products }) {
             return (
               <div
                 key={p.id}
-                className="product-card"
-                style={{
-                  opacity: isDisabled ? 0.72 : 1,
-                  filter: isDisabled ? 'grayscale(35%)' : 'none',
-                  border: isDisabled ? '1.5px dashed #94a3b8' : undefined,
-                  borderTop: isDisabled ? '3.5px solid #64748b' : undefined,
-                  transition: 'all 0.3s ease'
-                }}
+                className={`product-card ${isDisabled ? 'product-card-disabled' : ''}`}
               >
-                <div className="card-img-wrapper">
-                  <img
-                    src={p.imageUrl}
-                    alt={p.title}
-                    className="card-img"
-                    onError={(e) => { e.target.src = '/public/assets/logo.jpg'; }}
-                  />
-                  <span className="category-tag">{p.category}</span>
+                {/* Card Top Bar */}
+                <div className="card-top-bar">
+                  <span className="card-category-badge">{p.category}</span>
                   {isBulkUnit && (
-                    <span className="bundle-badge">
-                      <i className="fa-solid fa-boxes-packing"></i> {p.bundlePieces} Pcs / {p.unit.replace('per ', '')}
+                    <span className="card-bundle-pill">
+                      {p.bundlePieces} Pcs/{p.unit.replace('per ', '')}
                     </span>
                   )}
                   {isDisabled && (
                     <span style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
                       background: '#ef4444',
                       color: '#ffffff',
                       fontSize: '0.72rem',
                       fontWeight: 700,
-                      padding: '0.35rem 0.75rem',
-                      borderRadius: '20px',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                      display: 'flex',
+                      padding: '0.25rem 0.65rem',
+                      borderRadius: '9999px',
+                      display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '0.3rem',
-                      zIndex: 5
+                      gap: '0.3rem'
                     }}>
                       <i className="fa-solid fa-ban"></i> Disabled (Moved to Last)
                     </span>
                   )}
                 </div>
 
-                <div className="card-body">
-                  <h3 className="product-title" style={{ color: isDisabled ? '#64748b' : undefined }}>
-                    {p.title}
-                  </h3>
-                  <p className="product-details">{p.description || 'Quality woven mat product.'}</p>
-
-                  <div className="purchase-rule-box">
-                    <i className="fa-solid fa-circle-info"></i>
-                    <span>{p.minOrderNotice || 'Available for purchase'}</span>
+                {/* Card Main Split */}
+                <div className="card-main-split">
+                  <div className="card-image-box">
+                    <img
+                      src={p.imageUrl || '/assets/logo.jpg'}
+                      alt={p.title}
+                      className="card-product-img"
+                      onError={(e) => { e.target.src = '/assets/logo.jpg'; }}
+                    />
                   </div>
 
-                  {/* Stock & Seasonal Info Display */}
-                  <div style={{ background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', margin: '0.6rem 0', fontSize: '0.78rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', color: 'var(--brand-navy)', fontWeight: 600 }}>
-                      <span><i className="fa-solid fa-warehouse"></i> Stock: {p.stockQty !== undefined ? `${p.stockQty} Bundles` : 'In Stock'}</span>
-                      {isDisabled && <span style={{ color: '#ef4444' }}>Status: Disabled</span>}
-                    </div>
-                    <div style={{ color: '#b45309', display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
-                      <i className="fa-solid fa-tags" style={{ fontSize: '0.75rem' }}></i>
-                      <span>{p.seasonNotice || 'Price may differ based on the season item or the stock quantity'}</span>
-                    </div>
-                  </div>
+                  <div className="card-info-col">
+                    <h3 className="card-title">{p.title}</h3>
+                    <p className="card-desc">{p.description || 'Quality woven mat product.'}</p>
 
-                  <div className="price-box">
-                    <div>
-                      <span className="rate-label">Rate</span>
-                      <div className="rate-value">
-                        ₹{p.baseRate ? p.baseRate.toLocaleString('en-IN') : 0} <span className="unit-label">/{p.unit ? p.unit.replace('per ', '') : ''}</span>
+                    <div className="card-tags-list">
+                      <div className="card-tag-yellow">
+                        <i className="fa-solid fa-box-open"></i>
+                        <span>{p.minOrderNotice || (isBulkUnit ? 'Purchased per full Bundle only' : 'Available for purchase')}</span>
                       </div>
-                      {isBulkUnit && (
-                        <div className="piece-rate-hint">(~ ₹{perPieceRate.toLocaleString('en-IN')} / pc)</div>
-                      )}
+                      <div className="card-tag-yellow">
+                        <i className="fa-solid fa-circle-info"></i>
+                        <span>{p.seasonNotice || 'Price may differ based on quantity & location'}</span>
+                      </div>
+                    </div>
+
+                    <div className="card-stock-row">
+                      <i className="fa-solid fa-warehouse"></i>
+                      <span>Available Stock: <strong>{p.stockQty !== undefined ? `${p.stockQty} Bundles` : 'In Stock'}</strong></span>
+                      {isDisabled && <span style={{ color: '#ef4444', marginLeft: 'auto' }}>Status: Disabled</span>}
                     </div>
                   </div>
+                </div>
 
-                  {/* Card Action Buttons: Edit, Toggle Disable, Delete */}
-                  <div className="card-actions" style={{ display: 'flex', gap: '0.4rem', marginTop: '0.8rem' }}>
+                {/* Card Footer: Rate on left, Admin Actions on right */}
+                <div className="card-footer-row">
+                  <div className="card-rate-col">
+                    <span className="card-rate-label">WHOLESALE RATE</span>
+                    <div className="card-rate-price">
+                      ₹{p.baseRate ? p.baseRate.toLocaleString('en-IN') : 0}
+                      <span className="card-rate-unit">/{p.unit ? p.unit.replace('per ', '') : 'Bundle'}</span>
+                    </div>
+                    {isBulkUnit && (
+                      <div className="card-per-pc-hint">(~ ₹{perPieceRate.toLocaleString('en-IN')}/pc)</div>
+                    )}
+                  </div>
+
+                  <div className="card-admin-actions" style={{ display: 'flex', gap: '0.4rem' }}>
                     <button
                       type="button"
-                      className="btn-action"
-                      style={{ flex: 1.2, background: 'var(--brand-navy)', color: '#fff', padding: '0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.82rem' }}
+                      className="btn-select-pill"
+                      style={{ padding: '0.5rem 0.95rem', fontSize: '0.82rem' }}
                       onClick={() => handleStartEdit(p)}
                     >
                       <i className="fa-solid fa-pen-to-square"></i> Edit
                     </button>
                     <button
                       type="button"
-                      className="btn-action"
+                      className="btn-select-pill"
                       style={{
-                        flex: 1.2,
                         background: isDisabled ? '#16a34a' : '#d97706',
-                        color: '#fff',
-                        padding: '0.45rem',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
+                        padding: '0.5rem 0.95rem',
                         fontSize: '0.82rem'
                       }}
                       onClick={() => handleToggleDisabled(p)}
@@ -365,11 +418,11 @@ export default function ProductGrid({ products }) {
                     </button>
                     <button
                       type="button"
-                      className="btn-action btn-delete"
-                      style={{ flex: 1, padding: '0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.82rem' }}
+                      className="btn-select-pill"
+                      style={{ background: '#ef4444', padding: '0.5rem 0.85rem', fontSize: '0.82rem' }}
                       onClick={() => handleDelete(p.id, p.title)}
                     >
-                      <i className="fa-solid fa-trash"></i> Delete
+                      <i className="fa-solid fa-trash"></i>
                     </button>
                   </div>
                 </div>
@@ -387,8 +440,8 @@ export default function ProductGrid({ products }) {
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(15, 23, 42, 0.7)',
-          backdropFilter: 'blur(4px)',
+          background: 'rgba(15, 23, 42, 0.72)',
+          backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -399,15 +452,16 @@ export default function ProductGrid({ products }) {
             background: '#ffffff',
             borderRadius: '16px',
             width: '100%',
-            maxWidth: '580px',
+            maxWidth: '560px',
             maxHeight: '90vh',
             overflowY: 'auto',
-            padding: '1.5rem',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            padding: '1.75rem',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid #e2e8f0'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
-              <h3 style={{ color: 'var(--brand-navy)', fontSize: '1.2rem', margin: 0 }}>
-                <i className="fa-solid fa-pen-to-square" style={{ color: 'var(--brand-emerald)', marginRight: '0.5rem' }}></i>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+              <h3 style={{ color: 'var(--brand-navy)', fontSize: '1.25rem', fontWeight: 800, margin: 0, fontFamily: "'Outfit', sans-serif" }}>
+                <i className="fa-solid fa-pen-to-square" style={{ color: 'var(--brand-gold)', marginRight: '0.5rem' }}></i>
                 Edit Mat Product
               </h3>
               <button
@@ -432,20 +486,21 @@ export default function ProductGrid({ products }) {
                 gap: '1rem'
               }}>
                 <img
-                  src={editForm.imagePreview || editForm.imageUrl || '/public/assets/logo.jpg'}
+                  src={editForm.imagePreview || editForm.imageUrl || '/assets/logo.jpg'}
                   alt="Product preview"
                   style={{
                     width: '75px',
                     height: '75px',
-                    objectFit: 'cover',
+                    objectFit: 'contain',
                     borderRadius: '8px',
-                    border: '1.5px solid #cbd5e1'
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff'
                   }}
-                  onError={(e) => { e.target.src = '/public/assets/logo.jpg'; }}
+                  onError={(e) => { e.target.src = '/assets/logo.jpg'; }}
                 />
                 <div style={{ flex: 1 }}>
                   <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.25rem', color: 'var(--brand-navy)' }}>
-                    <i className="fa-solid fa-image" style={{ color: 'var(--brand-emerald)', marginRight: '0.3rem' }}></i>
+                    <i className="fa-solid fa-image" style={{ color: 'var(--brand-gold)', marginRight: '0.3rem' }}></i>
                     Product Photo (Edit / Replace Image)
                   </label>
                   <input
@@ -454,16 +509,13 @@ export default function ProductGrid({ products }) {
                     onChange={handleImageChange}
                     style={{ fontSize: '0.82rem', width: '100%' }}
                   />
-                  <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
-                    Select new image to replace current photo (JPG, PNG, WEBP)
-                  </span>
                 </div>
               </div>
 
-              {/* Disable / Enable Toggle in Edit Modal */}
+              {/* Disable / Enable Toggle */}
               <div style={{
-                background: editForm.isDisabled ? '#fef2f2' : '#f0fdf4',
-                border: `1.5px solid ${editForm.isDisabled ? '#fca5a5' : '#86efac'}`,
+                background: editForm.isDisabled ? '#fef2f2' : '#eff6ff',
+                border: `1.5px solid ${editForm.isDisabled ? '#fca5a5' : '#bfdbfe'}`,
                 borderRadius: '10px',
                 padding: '0.75rem 1rem',
                 marginBottom: '1rem',
@@ -472,13 +524,10 @@ export default function ProductGrid({ products }) {
                 justifyContent: 'space-between'
               }}>
                 <div>
-                  <strong style={{ fontSize: '0.88rem', color: editForm.isDisabled ? '#991b1b' : '#166534', display: 'block' }}>
+                  <strong style={{ fontSize: '0.88rem', color: editForm.isDisabled ? '#991b1b' : 'var(--brand-navy)', display: 'block' }}>
                     <i className={`fa-solid ${editForm.isDisabled ? 'fa-ban' : 'fa-circle-check'}`} style={{ marginRight: '0.4rem' }}></i>
                     Product Status: {editForm.isDisabled ? 'Disabled (Moves to Last)' : 'Active (Actual Position)'}
                   </strong>
-                  <span style={{ fontSize: '0.75rem', color: editForm.isDisabled ? '#b91c1c' : '#15803d' }}>
-                    {editForm.isDisabled ? 'Item is placed at the end of catalog.' : 'Item is displayed in normal catalog position.'}
-                  </span>
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
                   <input
@@ -491,22 +540,22 @@ export default function ProductGrid({ products }) {
                 </label>
               </div>
 
-              <div className="form-group" style={{ marginBottom: '0.8rem' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Mat Name / Title</label>
+              <div className="form-group-custom" style={{ marginBottom: '0.8rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Mat Name / Title</label>
                 <input
                   type="text"
-                  className="form-control"
+                  className="form-control-custom"
                   value={editForm.title}
                   onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
                   required
                 />
               </div>
 
-              <div className="form-row" style={{ display: 'flex', gap: '0.8rem', marginBottom: '0.8rem' }}>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Category</label>
+              <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '0.8rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Category</label>
                   <select
-                    className="form-control"
+                    className="form-control-custom"
                     value={editForm.category}
                     onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                   >
@@ -516,11 +565,11 @@ export default function ProductGrid({ products }) {
                     <option value="Long Mat">Long Mat</option>
                   </select>
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Base Rate (₹)</label>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Base Rate (₹)</label>
                   <input
                     type="number"
-                    className="form-control"
+                    className="form-control-custom"
                     value={editForm.baseRate}
                     onChange={(e) => setEditForm({ ...editForm, baseRate: e.target.value })}
                     required
@@ -529,11 +578,11 @@ export default function ProductGrid({ products }) {
                 </div>
               </div>
 
-              <div className="form-row" style={{ display: 'flex', gap: '0.8rem', marginBottom: '0.8rem' }}>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Rate Unit</label>
+              <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '0.8rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Rate Unit</label>
                   <select
-                    className="form-control"
+                    className="form-control-custom"
                     value={editForm.unit}
                     onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
                   >
@@ -543,11 +592,11 @@ export default function ProductGrid({ products }) {
                     <option value="per Meter">per Meter</option>
                   </select>
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Available Stock Qty</label>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Available Stock Qty</label>
                   <input
                     type="number"
-                    className="form-control"
+                    className="form-control-custom"
                     value={editForm.stockQty}
                     onChange={(e) => setEditForm({ ...editForm, stockQty: e.target.value })}
                     min="0"
@@ -555,33 +604,32 @@ export default function ProductGrid({ products }) {
                 </div>
               </div>
 
-              <div className="form-group" style={{ marginBottom: '0.8rem' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#b45309' }}>
-                  <i className="fa-solid fa-tags"></i> Season & Stock Price Notice (Notice for Customers)
+              <div className="form-group-custom" style={{ marginBottom: '0.8rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#b45309', display: 'block', marginBottom: '0.3rem' }}>
+                  <i className="fa-solid fa-tags"></i> Season & Stock Price Notice
                 </label>
                 <input
                   type="text"
-                  className="form-control"
+                  className="form-control-custom"
                   value={editForm.seasonNotice}
                   onChange={(e) => setEditForm({ ...editForm, seasonNotice: e.target.value })}
-                  placeholder="Price may differ based on the season item or the stock quantity"
                 />
               </div>
 
-              <div className="form-group" style={{ marginBottom: '0.8rem' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Purchase Rule Notice</label>
+              <div className="form-group-custom" style={{ marginBottom: '0.8rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Purchase Rule Notice</label>
                 <input
                   type="text"
-                  className="form-control"
+                  className="form-control-custom"
                   value={editForm.minOrderNotice}
                   onChange={(e) => setEditForm({ ...editForm, minOrderNotice: e.target.value })}
                 />
               </div>
 
-              <div className="form-group" style={{ marginBottom: '1.2rem' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Description</label>
+              <div className="form-group-custom" style={{ marginBottom: '1.25rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Description</label>
                 <textarea
-                  className="form-control"
+                  className="form-control-custom"
                   rows="2"
                   value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
@@ -591,19 +639,25 @@ export default function ProductGrid({ products }) {
               <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
-                  className="btn btn-secondary"
                   onClick={() => setEditingProduct(null)}
-                  style={{ padding: '0.6rem 1.2rem' }}
+                  style={{
+                    padding: '0.6rem 1.25rem',
+                    background: '#f1f5f9',
+                    color: '#475569',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '9999px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary"
                   disabled={updating}
-                  style={{ padding: '0.6rem 1.4rem' }}
+                  className="btn-select-pill"
                 >
-                  <i className="fa-solid fa-check"></i> {updating ? 'Saving Changes...' : 'Save Product Changes'}
+                  <i className="fa-solid fa-check"></i> {updating ? 'Saving...' : 'Save Product Changes'}
                 </button>
               </div>
             </form>

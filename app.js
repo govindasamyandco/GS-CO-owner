@@ -59,7 +59,7 @@ const initialSeedProducts = [
         compressibility: 0.85,
         minOrderNotice: 'Available for individual piece purchase',
         description: 'Economical multi-color entryway mat suitable for home, office, and shop entrances.',
-        imageUrl: 'public/assets/logo.jpg'
+        imageUrl: '/assets/logo.jpg'
     },
     {
         title: '6ft Anti-Slip Runner Long Mat',
@@ -71,7 +71,7 @@ const initialSeedProducts = [
         compressibility: 0.85,
         minOrderNotice: 'Purchased per full Bundle (10 Pcs only)',
         description: 'Extra long hallway and kitchen runner mats bundled in 10-piece sets.',
-        imageUrl: 'public/assets/logo.jpg'
+        imageUrl: '/assets/logo.jpg'
     }
 ];
 
@@ -118,7 +118,7 @@ function setupAuthHandlers() {
         const password = document.getElementById('adminPassword').value.trim();
 
         // Direct Login Verification for Admin
-        if (email === "govindasamy.textitle@gmail.com" && (password === "admin123" || password === "govindasamy123")) {
+        if (email === "govindasamy.textile@gmail.com" && (password === "admin123" || password === "govindasamy123")) {
             localStorage.setItem('gsco_admin_logged_in', 'true');
             loginWrapper.classList.add('hidden');
             dashboardContainer.classList.remove('hidden');
@@ -279,7 +279,7 @@ function setupFormHandlers() {
             return;
         }
 
-        let imageUrl = 'public/assets/logo.jpg';
+        let imageUrl = '/assets/logo.jpg';
 
         if (selectedImageFile) {
             try {
@@ -357,7 +357,7 @@ function renderProductGrid() {
         card.className = 'product-card';
         card.innerHTML = `
             <div class="card-img-wrapper">
-                <img src="${p.imageUrl}" alt="${p.title}" class="card-img" onerror="this.src='public/assets/logo.jpg'">
+                <img src="${p.imageUrl}" alt="${p.title}" class="card-img" onerror="this.src='/assets/logo.jpg'">
                 <span class="category-tag">${p.category}</span>
                 ${isBulkUnit ? `
                     <span class="bundle-badge"><i class="fa-solid fa-boxes-packing"></i> ${p.bundlePieces} Pcs / ${p.unit.replace('per ', '')}</span>

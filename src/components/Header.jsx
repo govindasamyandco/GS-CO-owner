@@ -3,34 +3,43 @@ import React from 'react';
 export default function Header({ totalProducts, onLogout }) {
   return (
     <header className="top-nav">
-      <div className="brand-group">
-        <img src="/public/assets/logo.jpg" alt="Govindasamy & Co Logo" className="brand-logo" onError={(e) => { e.target.src = 'https://via.placeholder.com/55?text=GS'; }} />
-        <div className="brand-titles">
-          <h1>Govindasamy & Co</h1>
-          <span className="brand-tagline">Mat & Textile Products Admin Dashboard (React)</span>
-        </div>
-      </div>
-
-      <div className="quick-stats">
-        <div className="stat-badge">
-          <i className="fa-solid fa-rug"></i>
-          <div>
-            <span className="stat-value">{totalProducts}</span>
-            <span className="stat-label">Total Mat Products</span>
+      <div className="nav-container">
+        <div className="brand-group">
+          <div className="logo-wrapper">
+            <img
+              src="/assets/logo.jpg"
+              alt="Govindasamy & Co Logo"
+              className="brand-logo"
+              onError={(e) => { e.target.src = 'https://via.placeholder.com/48?text=GS'; }}
+            />
+          </div>
+          <div className="brand-titles">
+            <h1>GOVINDASAMY & CO</h1>
+            <span className="brand-tagline">Quality Mat & Textile Products Manufacturer & Wholesaler • Admin Portal</span>
           </div>
         </div>
 
-        <div className="stat-badge admin-user-badge">
-          <i className="fa-solid fa-user-shield"></i>
-          <div>
-            <span className="stat-value">govindasamy</span>
-            <span className="stat-label">Admin Logged In</span>
+        <div className="nav-actions">
+          <div className="admin-status-pill">
+            <i className="fa-solid fa-boxes-stacked"></i>
+            <span>{totalProducts} Products</span>
           </div>
-        </div>
 
-        <button type="button" className="btn btn-logout" onClick={onLogout} title="Log Out">
-          <i className="fa-solid fa-arrow-right-from-bracket"></i> Logout
-        </button>
+          <div className="admin-status-pill admin-badge-glow">
+            <i className="fa-solid fa-shield-halved"></i>
+            <span>Admin Active</span>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-logout-pill"
+            onClick={onLogout}
+            title="Log Out of Admin Portal"
+          >
+            <i className="fa-solid fa-arrow-right-from-bracket"></i>
+            <span>Logout</span>
+          </button>
+        </div>
       </div>
     </header>
   );
