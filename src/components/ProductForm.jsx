@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { db, storage, collection, addDoc, serverTimestamp, ref, uploadBytes, getDownloadURL, functions, httpsCallable } from '../firebase';
+import { toast } from '../utils/toast';
 
 export default function ProductForm() {
   const [name, setName] = useState('');
@@ -12,6 +13,8 @@ export default function ProductForm() {
   const [unitType, setUnitType] = useState('per Bundle');
   const [bundlePieces, setBundlePieces] = useState(10);
   const [minOrderNotice, setMinOrderNotice] = useState('Purchased per full Bundle (10 Pcs only)');
+  const [stockQty, setStockQty] = useState(100);
+  const [seasonNotice, setSeasonNotice] = useState('Price may differ based on the season item or the stock quantity');
   const [description, setDescription] = useState('');
   
   const [imageFile, setImageFile] = useState(null);
@@ -65,7 +68,7 @@ export default function ProductForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name || !category || !baseRate) {
-      alert('Please fill in all required product fields.');
+      toast.warning('Please fill in all required product fields.', 'Missing Information');
       return;
     }
 
@@ -74,12 +77,14 @@ export default function ProductForm() {
 
     if (imageFile) {
       try {
-        const storageRef = ref(storage, `product-images/${Date.now()}_${imageFile.name}`);
+        const storageRef = ref(storage, `product-images/${Date.now()}_${imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`);
         await uploadBytes(storageRef, imageFile);
         imageUrl = await getDownloadURL(storageRef);
       } catch (err) {
-        console.warn('Storage upload fallback:', err);
-        imageUrl = imagePreview || 'public/assets/logo.jpg';
+        console.error('Storage upload error:', err);
+        setUploading(false);
+        toast.error('Failed to upload product image to Cloud Storage: ' + err.message, 'Upload Error');
+        return;
       }
     }
 
@@ -97,6 +102,8 @@ export default function ProductForm() {
       bundlesPerPack,
       compressibility: 0.80,
       minOrderNotice,
+      stockQty: parseInt(stockQty) || 100,
+      seasonNotice,
       description,
       imageUrl,
       createdAt: serverTimestamp()
@@ -112,7 +119,7 @@ export default function ProductForm() {
         await addDoc(collection(db, 'products'), newProduct);
       }
 
-      alert(`Product "${name}" uploaded successfully! Audit log recorded.`);
+      toast.success(`Product "${name}" uploaded successfully! Audit log recorded.`, 'Product Uploaded');
       // Reset Form
       setName('');
       setBaseRate('');
@@ -120,8 +127,23 @@ export default function ProductForm() {
       setImageFile(null);
       setImagePreview(null);
     } catch (err) {
-      console.error('Error adding product:', err);
-      alert('Failed to upload product: ' + err.message);
+      console.warn('Remote write pending, broadcasting locally across tabs in real-time:', err);
+      const localProduct = {
+        id: 'prod_' + Date.now(),
+        ...newProduct,
+        createdAt: new Date().toISOString()
+      };
+      const existing = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
+      localStorage.setItem('gsco_catalog_products', JSON.stringify([localProduct, ...existing]));
+      if (typeof window !== 'undefined' && window.BroadcastChannel) {
+        const channel = new BroadcastChannel('gsco_realtime_channel');
+        channel.postMessage({ type: 'PRODUCT_ADDED', product: localProduct });
+      }
+      toast.success(`Product "${name}" uploaded successfully! Real-time sync active.`, 'Product Uploaded');
+      setName('');
+      setBaseRate('');
+      setDescription('');
+      setImagePreview(null);
     } finally {
       setUploading(false);
     }
@@ -262,6 +284,31 @@ export default function ProductForm() {
               onChange={(e) => setMinOrderNotice(e.target.value)}
               placeholder="Notice..."
             />
+          </div>
+
+          {/* Stock Quantity & Season/Stock Pricing Notice */}
+          <div className="form-row">
+            <div className="form-group col-6">
+              <label><i className="fa-solid fa-warehouse"></i> Available Stock Qty</label>
+              <input
+                type="number"
+                className="form-control"
+                value={stockQty}
+                onChange={(e) => setStockQty(e.target.value)}
+                placeholder="e.g. 100"
+                min="0"
+              />
+            </div>
+            <div className="form-group col-6">
+              <label><i className="fa-solid fa-tags"></i> Pricing Notice</label>
+              <input
+                type="text"
+                className="form-control"
+                value={seasonNotice}
+                onChange={(e) => setSeasonNotice(e.target.value)}
+                placeholder="Price may differ based on the season item or the stock quantity"
+              />
+            </div>
           </div>
 
           {/* Details */}

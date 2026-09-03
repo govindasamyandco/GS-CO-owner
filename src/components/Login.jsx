@@ -1,22 +1,23 @@
 import React, { useState } from 'react';
-import { auth, signInWithEmailAndPassword } from '../firebase';
+import { auth, signInWithEmailAndPassword, googleProvider, signInWithPopup } from '../firebase';
 import { generateTotpSecret, verifyTotpCode } from '../utils/totpHelper';
 import { RateLimiter, sanitizeInput } from '../utils/security';
 import { verifyBiometricFingerprint } from '../utils/biometricHelper';
+import { toast } from '../utils/toast';
 import MfaEnrollment from './MfaEnrollment';
 
 const limiter = new RateLimiter(5, 300); // 5 max attempts, 300s (5-minute) lockout
 
 export default function Login({ onLoginSuccess }) {
-  const [email, setEmail] = useState('govindasamy.textitle@gmail.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState(import.meta.env.VITE_ADMIN_EMAIL || '');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
   // Two-Step Authentication State
   const [step, setStep] = useState(1); // 1 = Email/Pass, 2 = 6-Digit TOTP Code
   const [totpCode, setTotpCode] = useState('');
   const [totpSecret, setTotpSecret] = useState(
-    localStorage.getItem('gsco_admin_totp_secret') || 'GSCOADMIN2026MFA'
+    localStorage.getItem('gsco_admin_totp_secret') || ''
   );
   
   const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
@@ -37,16 +38,26 @@ export default function Login({ onLoginSuccess }) {
 
     const cleanEmail = sanitizeInput(email);
 
-    if (cleanEmail === 'govindasamy.textitle@gmail.com' && (password === 'admin123' || password === 'govindasamy123')) {
-      limiter.resetAttempts();
-      setStep(2); // Advance to 6-digit TOTP MFA step
-      return;
-    }
-
     try {
-      await signInWithEmailAndPassword(auth, cleanEmail, password);
+      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
+      // Verify admin custom claim from Firebase Auth token or configured admin email
+      const idToken = await userCredential.user.getIdTokenResult(true);
+      const hasAdminAuth = idToken.claims.admin === true || userCredential.user.email === (import.meta.env.VITE_ADMIN_EMAIL || 'govindasamy.textile@gmail.com');
+      if (!hasAdminAuth) {
+        setErrorMsg('🚨 Access Denied: This account lacks verified admin authorization.');
+        return;
+      }
       limiter.resetAttempts();
-      setStep(2); // Advance to 6-digit TOTP MFA step
+
+      // If no TOTP secret is enrolled yet, trigger enrollment
+      const existingSecret = localStorage.getItem('gsco_admin_totp_secret');
+      if (!existingSecret) {
+        const newSec = generateTotpSecret();
+        setTotpSecret(newSec);
+        setShowEnrollmentModal(true);
+      } else {
+        setStep(2); // Advance to 6-digit TOTP MFA step
+      }
     } catch (err) {
       console.error('Primary auth error:', err);
       const updatedRecord = limiter.recordFailedAttempt();
@@ -57,6 +68,41 @@ export default function Login({ onLoginSuccess }) {
       } else {
         setErrorMsg(`Invalid credentials. ${remainingTries} attempt(s) remaining before security lockout.`);
       }
+    }
+  };
+
+  // Step 1 Alternative: Google Sign-In with Store Admin Authorization
+  const handleGoogleSignIn = async () => {
+    setErrorMsg('');
+    const lockStatus = limiter.isLockedOut();
+    if (lockStatus.locked) {
+      setErrorMsg(`⚠️ Too many failed attempts. Security lockout active for ${lockStatus.remainingSecs} seconds.`);
+      return;
+    }
+
+    try {
+      const userCredential = await signInWithPopup(auth, googleProvider);
+      const idToken = await userCredential.user.getIdTokenResult(true);
+      const hasAdminAuth = idToken.claims.admin === true || userCredential.user.email === (import.meta.env.VITE_ADMIN_EMAIL || 'govindasamy.textile@gmail.com');
+
+      if (!hasAdminAuth) {
+        setErrorMsg(`🚨 Access Denied: Google account (${userCredential.user.email}) is not authorized as store admin.`);
+        return;
+      }
+
+      limiter.resetAttempts();
+
+      const existingSecret = localStorage.getItem('gsco_admin_totp_secret');
+      if (!existingSecret) {
+        const newSec = generateTotpSecret();
+        setTotpSecret(newSec);
+        setShowEnrollmentModal(true);
+      } else {
+        setStep(2); // Advance to 6-digit TOTP MFA step
+      }
+    } catch (err) {
+      console.error('Google sign-in error:', err);
+      setErrorMsg('Google Sign-In: ' + (err.message || err.code));
     }
   };
 
@@ -114,7 +160,7 @@ export default function Login({ onLoginSuccess }) {
     localStorage.setItem('gsco_admin_totp_secret', newSecret);
     setTotpSecret(newSecret);
     setShowEnrollmentModal(false);
-    alert('✅ Authenticator setup complete! Use the 6-digit code from Google Authenticator on your phone to log in.');
+    toast.success('Authenticator setup complete! Use the 6-digit code from Google Authenticator on your phone to log in.', 'MFA Enrolled');
   };
 
   return (
@@ -151,7 +197,7 @@ export default function Login({ onLoginSuccess }) {
                   className="form-control"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="govindasamy.textitle@gmail.com"
+                  placeholder={import.meta.env.VITE_ADMIN_EMAIL || "admin@example.com"}
                   required
                 />
                 <i className="fa-solid fa-user input-icon"></i>
@@ -185,6 +231,33 @@ export default function Login({ onLoginSuccess }) {
 
             <button type="submit" className="btn btn-primary btn-block btn-login">
               Next Step: Enter 6-Digit TOTP <i className="fa-solid fa-arrow-right"></i>
+            </button>
+
+            <div style={{ margin: '1rem 0', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+              <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>or</span>
+              <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              className="btn btn-secondary btn-block"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.6rem',
+                background: '#ffffff',
+                color: '#1e293b',
+                border: '1.5px solid #cbd5e1',
+                fontWeight: 600,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+                cursor: 'pointer'
+              }}
+            >
+              <i className="fa-brands fa-google" style={{ color: '#ea4335', fontSize: '1.1rem' }}></i>
+              Sign In with Google Account
             </button>
           </form>
         ) : (

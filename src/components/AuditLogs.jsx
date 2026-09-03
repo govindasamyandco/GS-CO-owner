@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { db, collection, onSnapshot } from '../firebase';
+import { db, collection, onSnapshot, query, orderBy, limit } from '../firebase';
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const auditRef = collection(db, 'audit_logs');
-    const unsubscribe = onSnapshot(auditRef, (snapshot) => {
+    // Limit to latest 25 logs to prevent unbounded read operations
+    const auditQuery = query(
+      collection(db, 'audit_logs'),
+      orderBy('timestamp', 'desc'),
+      limit(25)
+    );
+    const unsubscribe = onSnapshot(auditQuery, (snapshot) => {
       const fetched = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data()
       }));
-      // Sort newest first
-      fetched.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
       setLogs(fetched);
       setLoading(false);
     }, (err) => {

@@ -1,17 +1,17 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy, limit, connectFirestoreEmulator } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from "firebase/functions";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyDvjfa-nhsPwYGUn1BcAv6ukXiFwmaa9ks",
-    authDomain: "govindasamyandco.firebaseapp.com",
-    projectId: "govindasamyandco",
-    storageBucket: "govindasamyandco.firebasestorage.app",
-    messagingSenderId: "154816426732",
-    appId: "1:154816426732:web:9bc68ca9632db51c2dabc9",
-    measurementId: "G-T98D4GNX9V"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
@@ -19,6 +19,17 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 export const functions = getFunctions(app);
+export const googleProvider = new GoogleAuthProvider();
+
+// Connect to local emulators in local development
+if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+  try {
+    connectFirestoreEmulator(db, "127.0.0.1", 8080);
+    connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+  } catch (e) {
+    // Ignore already connected warnings
+  }
+}
 
 export {
   collection,
@@ -28,11 +39,17 @@ export {
   deleteDoc,
   onSnapshot,
   serverTimestamp,
+  query,
+  orderBy,
+  limit,
   ref,
   uploadBytes,
   getDownloadURL,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
+  onAuthStateChanged,
+  signInWithPopup,
   httpsCallable
 };
 

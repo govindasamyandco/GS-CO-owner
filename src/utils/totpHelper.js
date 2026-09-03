@@ -37,7 +37,7 @@ export function generateTotpSecret() {
 /**
  * Generate otpauth:// URI for QR Code rendering in Google Authenticator / Authy
  */
-export function getTotpUri(secret, accountName = "govindasamy.textitle@gmail.com", issuer = "Govindasamy & Co Admin") {
+export function getTotpUri(secret, accountName = (import.meta.env?.VITE_ADMIN_EMAIL || "admin"), issuer = "Govindasamy & Co Admin") {
   return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(accountName)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&period=30&digits=6`;
 }
 
