@@ -163,7 +163,12 @@ export default function ProductGrid({ products }) {
       if (editForm.imageFile) {
         try {
           const imageRef = ref(storage, `product-images/${Date.now()}_${editForm.imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`);
-          await uploadBytes(imageRef, editForm.imageFile);
+          
+          const storageTimeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Cloud Storage timeout after 2.5s')), 2500)
+          );
+
+          await Promise.race([uploadBytes(imageRef, editForm.imageFile), storageTimeout]);
           finalImageUrl = await getDownloadURL(imageRef);
         } catch (imgErr) {
           console.warn('Image upload fallback to compressed Data URL:', imgErr);

@@ -132,13 +132,19 @@ export default function ProductForm() {
     if (imageFile) {
       try {
         const storageRef = ref(storage, `product-images/${Date.now()}_${imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`);
-        await uploadBytes(storageRef, imageFile);
+        
+        // Strict 2.5-second timeout race to prevent Firebase Storage's default 120s retry loop from hanging
+        const storageTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Cloud Storage connection timeout after 2.5s')), 2500)
+        );
+
+        await Promise.race([uploadBytes(storageRef, imageFile), storageTimeout]);
         imageUrl = await getDownloadURL(storageRef);
       } catch (err) {
-        console.warn('Cloud Storage upload failed, compressing for Data URL backup:', err.message);
+        console.warn('Cloud Storage upload skipped or timed out, using instant Data URL fallback:', err.message);
         try {
           imageUrl = await compressImage(imageFile, 800, 0.75);
-          toast.info('Image optimized & attached via Data URL fallback.', 'Cloud Storage Notice');
+          toast.info('Image optimized & attached via instant Data URL fallback.', 'Storage Notice');
         } catch (b64Err) {
           console.error('Image compression error:', b64Err);
           setUploading(false);
