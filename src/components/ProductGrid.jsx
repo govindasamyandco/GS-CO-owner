@@ -547,35 +547,71 @@ export default function ProductGrid({ products }) {
             background: '#ffffff',
             borderRadius: '16px',
             width: '100%',
-            maxWidth: '560px',
+            maxWidth: '580px',
             maxHeight: '90vh',
             overflowY: 'auto',
             padding: '1.75rem',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
             border: '1px solid #e2e8f0'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
-              <h3 style={{ color: 'var(--brand-navy)', fontSize: '1.25rem', fontWeight: 800, margin: 0, fontFamily: "'Outfit', sans-serif" }}>
-                <i className="fa-solid fa-pen-to-square" style={{ color: 'var(--brand-gold)', marginRight: '0.5rem' }}></i>
-                Edit Mat Product
-              </h3>
+            {/* Modal Header */}
+            <div style={{
+              display: 'flex',
+              justify: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1.25rem',
+              borderBottom: '1px solid #e2e8f0',
+              paddingBottom: '0.85rem'
+            }}>
+              <div>
+                <h3 style={{
+                  color: 'var(--brand-navy)',
+                  fontSize: '1.25rem',
+                  fontWeight: 800,
+                  margin: 0,
+                  fontFamily: "'Outfit', sans-serif",
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  <i className="fa-solid fa-pen-to-square" style={{ color: 'var(--brand-gold)' }}></i>
+                  Edit Mat Product
+                </h3>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: '#64748b' }}>
+                  Update details, pricing, stock availability and product image
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setEditingProduct(null)}
-                style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}
+                style={{
+                  background: '#f1f5f9',
+                  border: 'none',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1rem',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
               >
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit}>
-              {/* Image in Edit Option */}
+            <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Product Photo Upload Section */}
               <div style={{
                 background: '#f8fafc',
-                padding: '0.85rem',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-                marginBottom: '1rem',
+                padding: '1rem',
+                borderRadius: '12px',
+                border: '1.5px solid #e2e8f0',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '1rem'
@@ -584,73 +620,105 @@ export default function ProductGrid({ products }) {
                   src={editForm.imagePreview || editForm.imageUrl || '/assets/logo.jpg'}
                   alt="Product preview"
                   style={{
-                    width: '75px',
-                    height: '75px',
+                    width: '80px',
+                    height: '80px',
                     objectFit: 'contain',
-                    borderRadius: '8px',
+                    borderRadius: '10px',
                     border: '1.5px solid #cbd5e1',
-                    background: '#ffffff'
+                    background: '#ffffff',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
                   }}
                   onError={(e) => { e.target.src = '/assets/logo.jpg'; }}
                 />
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.25rem', color: 'var(--brand-navy)' }}>
-                    <i className="fa-solid fa-image" style={{ color: 'var(--brand-gold)', marginRight: '0.3rem' }}></i>
-                    Product Photo (Edit / Replace Image)
+                  <label style={{
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    color: 'var(--brand-navy)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    marginBottom: '0.4rem'
+                  }}>
+                    <i className="fa-solid fa-image" style={{ color: 'var(--brand-gold)' }}></i>
+                    Product Photo (Edit / Replace)
                   </label>
                   <input
                     type="file"
                     accept="image/*"
                     onChange={handleImageChange}
-                    style={{ fontSize: '0.82rem', width: '100%' }}
+                    className="form-control"
+                    style={{ fontSize: '0.8rem', padding: '0.4rem 0.6rem' }}
                   />
                 </div>
               </div>
 
-              {/* Disable / Enable Toggle */}
+              {/* Product Status: Active / Disabled Banner */}
               <div style={{
                 background: editForm.isDisabled ? '#fef2f2' : '#eff6ff',
                 border: `1.5px solid ${editForm.isDisabled ? '#fca5a5' : '#bfdbfe'}`,
-                borderRadius: '10px',
-                padding: '0.75rem 1rem',
-                marginBottom: '1rem',
+                borderRadius: '12px',
+                padding: '0.85rem 1.1rem',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'
               }}>
                 <div>
-                  <strong style={{ fontSize: '0.88rem', color: editForm.isDisabled ? '#991b1b' : 'var(--brand-navy)', display: 'block' }}>
-                    <i className={`fa-solid ${editForm.isDisabled ? 'fa-ban' : 'fa-circle-check'}`} style={{ marginRight: '0.4rem' }}></i>
-                    Product Status: {editForm.isDisabled ? 'Disabled (Moves to Last)' : 'Active (Actual Position)'}
+                  <strong style={{
+                    fontSize: '0.86rem',
+                    color: editForm.isDisabled ? '#991b1b' : '#1e40af',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem'
+                  }}>
+                    <i className={`fa-solid ${editForm.isDisabled ? 'fa-ban' : 'fa-circle-check'}`}></i>
+                    Product Status: {editForm.isDisabled ? 'Disabled (Hidden / Moved to End)' : 'Active (Visible on Catalog)'}
                   </strong>
                 </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.84rem',
+                  color: editForm.isDisabled ? '#991b1b' : 'var(--brand-navy)'
+                }}>
                   <input
                     type="checkbox"
                     checked={editForm.isDisabled}
                     onChange={(e) => setEditForm({ ...editForm, isDisabled: e.target.checked })}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }}
                   />
                   Disable
                 </label>
               </div>
 
-              <div className="form-group-custom" style={{ marginBottom: '0.8rem' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Mat Name / Title</label>
+              {/* Title / Name */}
+              <div className="form-group">
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <i className="fa-solid fa-tag" style={{ color: 'var(--brand-gold)' }}></i>
+                  Mat Name / Title
+                </label>
                 <input
                   type="text"
-                  className="form-control-custom"
+                  className="form-control"
                   value={editForm.title}
                   onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  placeholder="e.g. Heavy Duty Panipat Door Mat"
                   required
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '0.8rem' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Category</label>
+              {/* Category & Base Rate (2-Column Grid) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <i className="fa-solid fa-layer-group" style={{ color: 'var(--brand-gold)' }}></i>
+                    Category
+                  </label>
                   <select
-                    className="form-control-custom"
+                    className="form-control"
                     value={editForm.category}
                     onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                   >
@@ -660,11 +728,15 @@ export default function ProductGrid({ products }) {
                     <option value="Long Mat">Long Mat</option>
                   </select>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Base Rate (₹)</label>
+
+                <div className="form-group">
+                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <i className="fa-solid fa-indian-rupee-sign" style={{ color: 'var(--brand-gold)' }}></i>
+                    Base Rate (₹)
+                  </label>
                   <input
                     type="number"
-                    className="form-control-custom"
+                    className="form-control"
                     value={editForm.baseRate}
                     onChange={(e) => setEditForm({ ...editForm, baseRate: e.target.value })}
                     required
@@ -673,11 +745,15 @@ export default function ProductGrid({ products }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '0.8rem' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Rate Unit</label>
+              {/* Rate Unit & Stock Availability (2-Column Grid) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <i className="fa-solid fa-ruler-combined" style={{ color: 'var(--brand-gold)' }}></i>
+                    Rate Unit
+                  </label>
                   <select
-                    className="form-control-custom"
+                    className="form-control"
                     value={editForm.unit}
                     onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
                   >
@@ -687,16 +763,21 @@ export default function ProductGrid({ products }) {
                     <option value="per Meter">per Meter</option>
                   </select>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Stock Availability</label>
+
+                <div className="form-group">
+                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <i className="fa-solid fa-warehouse" style={{ color: 'var(--brand-gold)' }}></i>
+                    Stock Availability
+                  </label>
                   <select
-                    className="form-control-custom"
+                    className="form-control"
                     value={editForm.stockStatus || 'IN_STOCK'}
                     onChange={(e) => setEditForm({ ...editForm, stockStatus: e.target.value })}
                     style={{
                       fontWeight: 700,
-                      color: editForm.stockStatus === 'IN_STOCK' ? '#166534' : '#991b1b',
-                      backgroundColor: editForm.stockStatus === 'IN_STOCK' ? '#f0fdf4' : '#fef2f2'
+                      color: editForm.stockStatus === 'IN_STOCK' ? '#15803d' : '#b91c1c',
+                      backgroundColor: editForm.stockStatus === 'IN_STOCK' ? '#f0fdf4' : '#fef2f2',
+                      borderColor: editForm.stockStatus === 'IN_STOCK' ? '#86efac' : '#fca5a5'
                     }}
                   >
                     <option value="IN_STOCK">In Stock</option>
@@ -705,60 +786,74 @@ export default function ProductGrid({ products }) {
                 </div>
               </div>
 
-              <div className="form-group-custom" style={{ marginBottom: '0.8rem' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#b45309', display: 'block', marginBottom: '0.3rem' }}>
-                  <i className="fa-solid fa-tags"></i> Season & Stock Price Notice
+              {/* Season Notice */}
+              <div className="form-group">
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#b45309', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <i className="fa-solid fa-tags"></i>
+                  Season & Stock Price Notice
                 </label>
                 <input
                   type="text"
-                  className="form-control-custom"
+                  className="form-control"
                   value={editForm.seasonNotice}
                   onChange={(e) => setEditForm({ ...editForm, seasonNotice: e.target.value })}
+                  placeholder="Price may differ based on the season item or the stock quantity"
                 />
               </div>
 
-              <div className="form-group-custom" style={{ marginBottom: '0.8rem' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Purchase Rule Notice</label>
+              {/* Purchase Rule Notice */}
+              <div className="form-group">
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <i className="fa-solid fa-cart-flatbed" style={{ color: 'var(--brand-gold)' }}></i>
+                  Purchase Rule Notice
+                </label>
                 <input
                   type="text"
-                  className="form-control-custom"
+                  className="form-control"
                   value={editForm.minOrderNotice}
                   onChange={(e) => setEditForm({ ...editForm, minOrderNotice: e.target.value })}
+                  placeholder="Purchased per full Bundle (10 Pcs only)"
                 />
               </div>
 
-              <div className="form-group-custom" style={{ marginBottom: '1.25rem' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Description</label>
+              {/* Description */}
+              <div className="form-group">
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <i className="fa-solid fa-align-left" style={{ color: 'var(--brand-gold)' }}></i>
+                  Description
+                </label>
                 <textarea
-                  className="form-control-custom"
-                  rows="2"
+                  className="form-control"
+                  rows="3"
                   value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  placeholder="Product dimensions, color patterns, material details..."
                 ></textarea>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'flex-end' }}>
+              {/* Action Buttons Footer */}
+              <div style={{
+                display: 'flex',
+                gap: '0.75rem',
+                justify: 'flex-end',
+                marginTop: '0.5rem',
+                paddingTop: '1rem',
+                borderTop: '1px solid #e2e8f0'
+              }}>
                 <button
                   type="button"
+                  className="btn btn-secondary"
                   onClick={() => setEditingProduct(null)}
-                  style={{
-                    padding: '0.6rem 1.25rem',
-                    background: '#f1f5f9',
-                    color: '#475569',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '9999px',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
                 >
-                  Cancel
+                  <i className="fa-solid fa-xmark"></i> Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={updating}
-                  className="btn-select-pill"
+                  className="btn btn-primary"
                 >
-                  <i className="fa-solid fa-check"></i> {updating ? 'Saving...' : 'Save Product Changes'}
+                  <i className="fa-solid fa-floppy-disk"></i>
+                  {updating ? 'Saving...' : 'Save Product Changes'}
                 </button>
               </div>
             </form>
