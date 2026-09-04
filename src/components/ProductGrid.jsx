@@ -126,12 +126,36 @@ export default function ProductGrid({ products }) {
     try {
       if (editForm.imageFile) {
         try {
-          const imageRef = ref(storage, `product-images/${Date.now()}_${editForm.imageFile.name}`);
+          const imageRef = ref(storage, `product-images/${Date.now()}_${editForm.imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`);
           await uploadBytes(imageRef, editForm.imageFile);
           finalImageUrl = await getDownloadURL(imageRef);
         } catch (imgErr) {
-          console.warn('Image upload fallback to preview/local:', imgErr);
-          finalImageUrl = editForm.imagePreview || editForm.imageUrl;
+          console.warn('Image upload fallback to compressed Data URL:', imgErr);
+          try {
+            finalImageUrl = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                  try {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    if (w > 800) { h = Math.round((h * 800) / w); w = 800; }
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    resolve(canvas.toDataURL('image/jpeg', 0.75));
+                  } catch (cErr) { resolve(e.target.result); }
+                };
+                img.onerror = () => resolve(e.target.result);
+                img.src = e.target.result;
+              };
+              reader.onerror = (rErr) => reject(rErr);
+              reader.readAsDataURL(editForm.imageFile);
+            });
+          } catch (b64Err) {
+            finalImageUrl = editForm.imageUrl;
+          }
         }
       }
 

@@ -71,9 +71,49 @@ export default function ProductForm() {
     }
   };
 
+  const compressImage = (file, maxWidth = 800, quality = 0.75) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            resolve(dataUrl);
+          } catch (canvasErr) {
+            resolve(e.target.result);
+          }
+        };
+        img.onerror = () => resolve(e.target.result);
+        img.src = e.target.result;
+      };
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleImageChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        toast.warning('Image size exceeds 10MB limit. Please select a smaller file.', 'File Too Large');
+        return;
+      }
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
     }
@@ -95,10 +135,16 @@ export default function ProductForm() {
         await uploadBytes(storageRef, imageFile);
         imageUrl = await getDownloadURL(storageRef);
       } catch (err) {
-        console.error('Storage upload error:', err);
-        setUploading(false);
-        toast.error('Failed to upload product image to Cloud Storage: ' + err.message, 'Upload Error');
-        return;
+        console.warn('Cloud Storage upload failed, compressing for Data URL backup:', err.message);
+        try {
+          imageUrl = await compressImage(imageFile, 800, 0.75);
+          toast.info('Image optimized & attached via Data URL fallback.', 'Cloud Storage Notice');
+        } catch (b64Err) {
+          console.error('Image compression error:', b64Err);
+          setUploading(false);
+          toast.error('Failed to process image: ' + err.message, 'Upload Error');
+          return;
+        }
       }
     }
 
@@ -147,8 +193,12 @@ export default function ProductForm() {
         ...newProduct,
         createdAt: new Date().toISOString()
       };
-      const existing = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
-      localStorage.setItem('gsco_catalog_products', JSON.stringify([localProduct, ...existing]));
+      try {
+        const existing = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
+        localStorage.setItem('gsco_catalog_products', JSON.stringify([localProduct, ...existing.slice(0, 30)]));
+      } catch (quotaErr) {
+        console.warn('LocalStorage quota notice:', quotaErr);
+      }
       if (typeof window !== 'undefined' && window.BroadcastChannel) {
         const channel = new BroadcastChannel('gsco_realtime_channel');
         channel.postMessage({ type: 'PRODUCT_ADDED', product: localProduct });
@@ -157,6 +207,7 @@ export default function ProductForm() {
       setName('');
       setBaseRate('');
       setDescription('');
+      setImageFile(null);
       setImagePreview(null);
     } finally {
       setUploading(false);
