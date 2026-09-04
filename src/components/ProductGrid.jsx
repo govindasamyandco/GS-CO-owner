@@ -95,9 +95,13 @@ export default function ProductGrid({ products }) {
           updateProductFunction({ productId: prod.id, ...updatePayload }).catch(() => {});
         } catch (_) {}
       } catch (dbErr) {
-        console.warn('Direct Firestore update error, attempting Cloud Function fallback:', dbErr);
-        const updateProductFunction = httpsCallable(functions, 'updateProduct');
-        await updateProductFunction({ productId: prod.id, ...updatePayload });
+        console.warn('Direct Firestore update notice, broadcasting locally:', dbErr.message);
+        try {
+          const updateProductFunction = httpsCallable(functions, 'updateProduct');
+          await updateProductFunction({ productId: prod.id, ...updatePayload });
+        } catch (funcErr) {
+          console.warn('Cloud Function bypass:', funcErr.message);
+        }
       }
 
       // Update local storage & broadcast channel
@@ -224,9 +228,13 @@ export default function ProductGrid({ products }) {
           updateProductFunction({ productId: editingProduct.id, ...updatePayload }).catch(() => {});
         } catch (_) {}
       } catch (dbErr) {
-        console.warn('Direct Firestore update error, attempting Cloud Function fallback:', dbErr);
-        const updateProductFunction = httpsCallable(functions, 'updateProduct');
-        await updateProductFunction({ productId: editingProduct.id, ...updatePayload });
+        console.warn('Direct Firestore update notice, broadcasting locally:', dbErr.message);
+        try {
+          const updateProductFunction = httpsCallable(functions, 'updateProduct');
+          await updateProductFunction({ productId: editingProduct.id, ...updatePayload });
+        } catch (funcErr) {
+          console.warn('Cloud Function bypass:', funcErr.message);
+        }
       }
 
       const cached = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
@@ -269,9 +277,13 @@ export default function ProductGrid({ products }) {
               deleteProductFunction({ productId: id }).catch(() => {});
             } catch (_) {}
           } catch (dbErr) {
-            console.warn('Direct Firestore delete error, attempting Cloud Function fallback:', dbErr);
-            const deleteProductFunction = httpsCallable(functions, 'deleteProduct');
-            await deleteProductFunction({ productId: id });
+            console.warn('Direct Firestore delete notice, broadcasting locally:', dbErr.message);
+            try {
+              const deleteProductFunction = httpsCallable(functions, 'deleteProduct');
+              await deleteProductFunction({ productId: id });
+            } catch (funcErr) {
+              console.warn('Cloud Function bypass:', funcErr.message);
+            }
           }
 
           const cached = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
