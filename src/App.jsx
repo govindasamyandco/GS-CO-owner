@@ -4,6 +4,7 @@ import Login from './components/Login';
 import Header from './components/Header';
 import ProductForm from './components/ProductForm';
 import ProductGrid from './components/ProductGrid';
+import OrdersManager from './components/OrdersManager';
 import AuditLogs from './components/AuditLogs';
 import ModernToastContainer from './components/ModernToastContainer';
 import { toast } from './utils/toast';
@@ -157,6 +158,7 @@ export default function App() {
       <main className="main-layout">
         <ProductForm />
         <ProductGrid products={products} />
+        <OrdersManager />
         <AuditLogs />
       </main>
     </div>

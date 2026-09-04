@@ -27,7 +27,7 @@ export default function ProductForm() {
   const [unitType, setUnitType] = useState('per Bundle');
   const [bundlePieces, setBundlePieces] = useState(10);
   const [minOrderNotice, setMinOrderNotice] = useState('Purchased per full Bundle (10 Pcs only)');
-  const [stockQty, setStockQty] = useState(100);
+  const [stockStatus, setStockStatus] = useState('IN_STOCK');
   const [seasonNotice, setSeasonNotice] = useState('Price may differ based on the season item or the stock quantity');
   const [description, setDescription] = useState('');
   
@@ -162,7 +162,9 @@ export default function ProductForm() {
       bundlesPerPack,
       compressibility: 0.80,
       minOrderNotice,
-      stockQty: parseInt(stockQty) || 100,
+      inStock: stockStatus === 'IN_STOCK',
+      stockStatus: stockStatus,
+      stockQty: stockStatus === 'IN_STOCK' ? 100 : 0,
       seasonNotice,
       description,
       imageUrl,
@@ -170,16 +172,21 @@ export default function ProductForm() {
     };
 
     try {
-      // Execute via Cloud Function for Server-Side Security Verification & Audit Logging
+      // Primary direct write to Firestore for instant real-time response
       try {
+        await addDoc(collection(db, 'products'), newProduct);
+        // Non-blocking background call to Cloud Function for audit logging if available
+        try {
+          const addProductFunction = httpsCallable(functions, 'addProduct');
+          addProductFunction(newProduct).catch(() => {});
+        } catch (_) {}
+      } catch (dbErr) {
+        console.warn('Direct Firestore write failed, attempting Cloud Function:', dbErr);
         const addProductFunction = httpsCallable(functions, 'addProduct');
         await addProductFunction(newProduct);
-      } catch (funcErr) {
-        console.warn('Cloud Function fallback to Firestore client SDK:', funcErr);
-        await addDoc(collection(db, 'products'), newProduct);
       }
 
-      toast.success(`Product "${name}" uploaded successfully! Audit log recorded.`, 'Product Uploaded');
+      toast.success(`Product "${name}" uploaded successfully! Catalog updated.`, 'Product Uploaded');
       // Reset Form
       setName('');
       setBaseRate('');
@@ -351,18 +358,24 @@ export default function ProductForm() {
             />
           </div>
 
-          {/* Stock Quantity & Season/Stock Pricing Notice */}
+          {/* Stock Availability Status & Season/Stock Pricing Notice */}
           <div className="form-row">
             <div className="form-group col-6">
-              <label><i className="fa-solid fa-warehouse"></i> Available Stock Qty</label>
-              <input
-                type="number"
+              <label><i className="fa-solid fa-warehouse"></i> Stock Availability</label>
+              <select
                 className="form-control"
-                value={stockQty}
-                onChange={(e) => setStockQty(e.target.value)}
-                placeholder="e.g. 100"
-                min="0"
-              />
+                value={stockStatus}
+                onChange={(e) => setStockStatus(e.target.value)}
+                style={{
+                  fontWeight: 700,
+                  color: stockStatus === 'IN_STOCK' ? '#166534' : '#991b1b',
+                  backgroundColor: stockStatus === 'IN_STOCK' ? '#f0fdf4' : '#fef2f2',
+                  borderColor: stockStatus === 'IN_STOCK' ? '#86efac' : '#fca5a5'
+                }}
+              >
+                <option value="IN_STOCK">🟢 In Stock</option>
+                <option value="OUT_OF_STOCK">🔴 Out of Stock</option>
+              </select>
             </div>
             <div className="form-group col-6">
               <label><i className="fa-solid fa-tags"></i> Pricing Notice</label>

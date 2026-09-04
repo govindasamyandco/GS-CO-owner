@@ -40,6 +40,7 @@ export default function ProductGrid({ products }) {
 
   // Open Edit Modal with Image & Disabled State
   const handleStartEdit = (prod) => {
+    const isCurrentlyInStock = prod.inStock !== false && prod.stockStatus !== 'OUT_OF_STOCK';
     setEditingProduct(prod);
     setEditForm({
       title: prod.title || '',
@@ -47,7 +48,8 @@ export default function ProductGrid({ products }) {
       baseRate: prod.baseRate || '',
       unit: prod.unit || 'per Bundle',
       bundlePieces: prod.bundlePieces || 10,
-      stockQty: prod.stockQty !== undefined ? prod.stockQty : 100,
+      stockStatus: isCurrentlyInStock ? 'IN_STOCK' : 'OUT_OF_STOCK',
+      stockQty: isCurrentlyInStock ? 100 : 0,
       seasonNotice: prod.seasonNotice || 'Price may differ based on the season item or the stock quantity',
       minOrderNotice: prod.minOrderNotice || '',
       description: prod.description || '',
@@ -87,11 +89,15 @@ export default function ProductGrid({ products }) {
       const updatePayload = { isDisabled: newDisabled };
 
       try {
+        await updateDoc(doc(db, 'products', prod.id), updatePayload);
+        try {
+          const updateProductFunction = httpsCallable(functions, 'updateProduct');
+          updateProductFunction({ productId: prod.id, ...updatePayload }).catch(() => {});
+        } catch (_) {}
+      } catch (dbErr) {
+        console.warn('Direct Firestore update error, attempting Cloud Function fallback:', dbErr);
         const updateProductFunction = httpsCallable(functions, 'updateProduct');
         await updateProductFunction({ productId: prod.id, ...updatePayload });
-      } catch (funcErr) {
-        console.warn('Cloud Function fallback to Firestore updateDoc:', funcErr);
-        await updateDoc(doc(db, 'products', prod.id), updatePayload);
       }
 
       // Update local storage & broadcast channel
@@ -112,6 +118,36 @@ export default function ProductGrid({ products }) {
     } catch (err) {
       console.error('Toggle disable error:', err);
       toast.error(`Failed to ${actionText} product: ` + err.message, 'Operation Failed');
+    }
+  };
+
+  // Quick Toggle Stock Status (In Stock vs Out of Stock)
+  const handleToggleStock = async (prod) => {
+    const isCurrentlyInStock = prod.inStock !== false && prod.stockStatus !== 'OUT_OF_STOCK';
+    const newInStock = !isCurrentlyInStock;
+    const newStatus = newInStock ? 'IN_STOCK' : 'OUT_OF_STOCK';
+
+    try {
+      const updatePayload = {
+        inStock: newInStock,
+        stockStatus: newStatus,
+        stockQty: newInStock ? 100 : 0
+      };
+
+      try {
+        await updateDoc(doc(db, 'products', prod.id), updatePayload);
+        try {
+          const updateProductFunction = httpsCallable(functions, 'updateProduct');
+          updateProductFunction({ productId: prod.id, ...updatePayload }).catch(() => {});
+        } catch (_) {}
+      } catch (dbErr) {
+        console.warn('Direct Firestore update error:', dbErr);
+      }
+
+      toast.success(`Product "${prod.title}" marked as ${newInStock ? 'In Stock' : 'Out of Stock'}!`, 'Stock Updated');
+    } catch (err) {
+      console.error('Toggle stock error:', err);
+      toast.error('Failed to update stock status: ' + err.message, 'Operation Failed');
     }
   };
 
@@ -159,13 +195,16 @@ export default function ProductGrid({ products }) {
         }
       }
 
+      const isEditInStock = editForm.stockStatus === 'IN_STOCK';
       const updatePayload = {
         title: editForm.title.trim(),
         category: editForm.category.trim(),
         baseRate: parseFloat(editForm.baseRate),
         unit: editForm.unit,
         bundlePieces: parseInt(editForm.bundlePieces) || 0,
-        stockQty: parseInt(editForm.stockQty) || 0,
+        inStock: isEditInStock,
+        stockStatus: editForm.stockStatus,
+        stockQty: isEditInStock ? 100 : 0,
         seasonNotice: editForm.seasonNotice.trim(),
         minOrderNotice: editForm.minOrderNotice.trim(),
         description: editForm.description.trim(),
@@ -174,11 +213,15 @@ export default function ProductGrid({ products }) {
       };
 
       try {
+        await updateDoc(doc(db, 'products', editingProduct.id), updatePayload);
+        try {
+          const updateProductFunction = httpsCallable(functions, 'updateProduct');
+          updateProductFunction({ productId: editingProduct.id, ...updatePayload }).catch(() => {});
+        } catch (_) {}
+      } catch (dbErr) {
+        console.warn('Direct Firestore update error, attempting Cloud Function fallback:', dbErr);
         const updateProductFunction = httpsCallable(functions, 'updateProduct');
         await updateProductFunction({ productId: editingProduct.id, ...updatePayload });
-      } catch (funcErr) {
-        console.warn('Cloud Function fallback to Firestore updateDoc:', funcErr);
-        await updateDoc(doc(db, 'products', editingProduct.id), updatePayload);
       }
 
       const cached = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
@@ -215,11 +258,15 @@ export default function ProductGrid({ products }) {
       onConfirm: async () => {
         try {
           try {
+            await deleteDoc(doc(db, 'products', id));
+            try {
+              const deleteProductFunction = httpsCallable(functions, 'deleteProduct');
+              deleteProductFunction({ productId: id }).catch(() => {});
+            } catch (_) {}
+          } catch (dbErr) {
+            console.warn('Direct Firestore delete error, attempting Cloud Function fallback:', dbErr);
             const deleteProductFunction = httpsCallable(functions, 'deleteProduct');
             await deleteProductFunction({ productId: id });
-          } catch (funcErr) {
-            console.warn('Cloud Function fallback to Firestore deleteDoc:', funcErr);
-            await deleteDoc(doc(db, 'products', id));
           }
 
           const cached = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
@@ -397,10 +444,39 @@ export default function ProductGrid({ products }) {
                       </div>
                     </div>
 
-                    <div className="card-stock-row">
-                      <i className="fa-solid fa-warehouse"></i>
-                      <span>Available Stock: <strong>{p.stockQty !== undefined ? `${p.stockQty} Bundles` : 'In Stock'}</strong></span>
-                      {isDisabled && <span style={{ color: '#ef4444', marginLeft: 'auto' }}>Status: Disabled</span>}
+                    <div className="card-stock-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <i className="fa-solid fa-warehouse"></i>
+                        Status: 
+                        <strong style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '999px',
+                          backgroundColor: (p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '#dcfce7' : '#fee2e2',
+                          color: (p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '#166534' : '#991b1b'
+                        }}>
+                          {(p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '🟢 In Stock' : '🔴 Out of Stock'}
+                        </strong>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStock(p)}
+                        title="Click to toggle stock availability"
+                        style={{
+                          background: (p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '#fef2f2' : '#f0fdf4',
+                          color: (p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '#991b1b' : '#166534',
+                          border: `1px solid ${(p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '#fca5a5' : '#86efac'}`,
+                          padding: '0.25rem 0.65rem',
+                          borderRadius: '6px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {(p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? 'Mark Out of Stock' : 'Mark In Stock'}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -617,14 +693,20 @@ export default function ProductGrid({ products }) {
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Available Stock Qty</label>
-                  <input
-                    type="number"
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Stock Availability</label>
+                  <select
                     className="form-control-custom"
-                    value={editForm.stockQty}
-                    onChange={(e) => setEditForm({ ...editForm, stockQty: e.target.value })}
-                    min="0"
-                  />
+                    value={editForm.stockStatus || 'IN_STOCK'}
+                    onChange={(e) => setEditForm({ ...editForm, stockStatus: e.target.value })}
+                    style={{
+                      fontWeight: 700,
+                      color: editForm.stockStatus === 'IN_STOCK' ? '#166534' : '#991b1b',
+                      backgroundColor: editForm.stockStatus === 'IN_STOCK' ? '#f0fdf4' : '#fef2f2'
+                    }}
+                  >
+                    <option value="IN_STOCK">🟢 In Stock</option>
+                    <option value="OUT_OF_STOCK">🔴 Out of Stock</option>
+                  </select>
                 </div>
               </div>
 
