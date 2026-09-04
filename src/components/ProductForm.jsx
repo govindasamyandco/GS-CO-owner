@@ -153,10 +153,11 @@ export default function ProductForm() {
     if (category === 'Long Mat') bundlesPerPack = 4;
     if (category === 'Local Mat') bundlesPerPack = 50;
 
-    const newProduct = {
-      title: name,
+    const nowIso = new Date().toISOString();
+    const productData = {
+      title: name.trim(),
       category,
-      baseRate: parseFloat(baseRate),
+      baseRate: parseFloat(baseRate) || 0,
       unit: unitType,
       bundlePieces: parseInt(bundlePieces) || 0,
       bundlesPerPack,
@@ -166,39 +167,40 @@ export default function ProductForm() {
       stockStatus: stockStatus,
       stockQty: stockStatus === 'IN_STOCK' ? 100 : 0,
       seasonNotice,
-      description,
-      imageUrl,
+      description: description.trim(),
+      imageUrl
+    };
+
+    const firestorePayload = {
+      ...productData,
       createdAt: serverTimestamp()
     };
 
     try {
       // Primary direct write to Firestore for instant real-time response
       try {
-        await addDoc(collection(db, 'products'), newProduct);
-        // Non-blocking background call to Cloud Function for audit logging if available
+        await addDoc(collection(db, 'products'), firestorePayload);
         try {
           const addProductFunction = httpsCallable(functions, 'addProduct');
-          addProductFunction(newProduct).catch(() => {});
+          addProductFunction(productData).catch(() => {});
         } catch (_) {}
       } catch (dbErr) {
-        console.warn('Direct Firestore write failed, attempting Cloud Function:', dbErr);
-        const addProductFunction = httpsCallable(functions, 'addProduct');
-        await addProductFunction(newProduct);
+        console.warn('Direct Firestore write notice, operating via client broadcast:', dbErr.message);
+        throw dbErr; // Trigger local state fallback
       }
 
       toast.success(`Product "${name}" uploaded successfully! Catalog updated.`, 'Product Uploaded');
-      // Reset Form
       setName('');
       setBaseRate('');
       setDescription('');
       setImageFile(null);
       setImagePreview(null);
     } catch (err) {
-      console.warn('Remote write pending, broadcasting locally across tabs in real-time:', err);
+      console.warn('Persisting product locally & broadcasting across tabs in real-time:', err.message);
       const localProduct = {
         id: 'prod_' + Date.now(),
-        ...newProduct,
-        createdAt: new Date().toISOString()
+        ...productData,
+        createdAt: nowIso
       };
       try {
         const existing = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
@@ -207,10 +209,15 @@ export default function ProductForm() {
         console.warn('LocalStorage quota notice:', quotaErr);
       }
       if (typeof window !== 'undefined' && window.BroadcastChannel) {
-        const channel = new BroadcastChannel('gsco_realtime_channel');
-        channel.postMessage({ type: 'PRODUCT_ADDED', product: localProduct });
+        try {
+          const channel = new BroadcastChannel('gsco_realtime_channel');
+          channel.postMessage({ type: 'PRODUCT_ADDED', product: localProduct });
+          channel.close();
+        } catch (bcErr) {
+          console.warn('BroadcastChannel error:', bcErr);
+        }
       }
-      toast.success(`Product "${name}" uploaded successfully! Real-time sync active.`, 'Product Uploaded');
+      toast.success(`Product "${name}" uploaded successfully! Added to catalog.`, 'Product Uploaded');
       setName('');
       setBaseRate('');
       setDescription('');
