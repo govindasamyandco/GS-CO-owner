@@ -449,39 +449,17 @@ export default function ProductGrid({ products }) {
                       </div>
                     </div>
 
-                    <div className="card-stock-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <i className="fa-solid fa-warehouse"></i>
-                        Status: 
-                        <strong style={{
-                          fontSize: '0.78rem',
-                          fontWeight: 700,
-                          padding: '0.2rem 0.6rem',
-                          borderRadius: '999px',
-                          backgroundColor: (p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '#dcfce7' : '#fee2e2',
-                          color: (p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '#166534' : '#991b1b'
-                        }}>
-                          {(p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '🟢 In Stock' : '🔴 Out of Stock'}
-                        </strong>
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStock(p)}
-                        title="Click to toggle stock availability"
-                        style={{
-                          background: (p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '#fef2f2' : '#f0fdf4',
-                          color: (p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '#991b1b' : '#166534',
-                          border: `1px solid ${(p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '#fca5a5' : '#86efac'}`,
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '6px',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {(p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? 'Mark Out of Stock' : 'Mark In Stock'}
-                      </button>
+                    <div className="card-stock-row" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <i className="fa-solid fa-warehouse"></i>
+                      <span>Stock Status: </span>
+                      <strong style={{
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        color: (p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? '#15803d' : '#b91c1c'
+                      }}>
+                        {(p.inStock !== false && p.stockStatus !== 'OUT_OF_STOCK') ? 'In Stock' : 'Out of Stock'}
+                      </strong>
+                      {isDisabled && <span style={{ color: '#ef4444', marginLeft: 'auto', fontSize: '0.78rem', fontWeight: 600 }}>• Disabled</span>}
                     </div>
                   </div>
                 </div>
@@ -709,8 +687,8 @@ export default function ProductGrid({ products }) {
                       backgroundColor: editForm.stockStatus === 'IN_STOCK' ? '#f0fdf4' : '#fef2f2'
                     }}
                   >
-                    <option value="IN_STOCK">🟢 In Stock</option>
-                    <option value="OUT_OF_STOCK">🔴 Out of Stock</option>
+                    <option value="IN_STOCK">In Stock</option>
+                    <option value="OUT_OF_STOCK">Out of Stock</option>
                   </select>
                 </div>
               </div>

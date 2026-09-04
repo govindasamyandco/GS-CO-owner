@@ -386,8 +386,8 @@ export default function ProductForm() {
                   borderColor: stockStatus === 'IN_STOCK' ? '#86efac' : '#fca5a5'
                 }}
               >
-                <option value="IN_STOCK">🟢 In Stock</option>
-                <option value="OUT_OF_STOCK">🔴 Out of Stock</option>
+                <option value="IN_STOCK">In Stock</option>
+                <option value="OUT_OF_STOCK">Out of Stock</option>
               </select>
             </div>
             <div className="form-group col-6">
