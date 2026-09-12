@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db, collection, onSnapshot, doc, updateDoc, query, orderBy, limit, getDoc } from '../firebase';
 import { toast } from '../utils/toast';
+import { printBaleSlips } from '../utils/baleSlipGenerator';
 
 export default function OrdersManager() {
   const [orders, setOrders] = useState([]);
@@ -222,17 +223,24 @@ export default function OrdersManager() {
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b' }}>
-                  <span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                     Est. Bales: <strong>{ord.estBales || 1}</strong> • Total Units: <strong>{ord.totalUnits || 0}</strong>
                     {ord.balesPacked && (
                       <button
                         onClick={() => toggleBaleDetail(ord.id)}
-                        style={{ marginLeft: '0.5rem', background: expandedBales[ord.id] !== undefined ? '#dbeafe' : '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.15rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer', color: '#1e40af', fontWeight: 600 }}
+                        style={{ marginLeft: '0.25rem', background: expandedBales[ord.id] !== undefined ? '#dbeafe' : '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.15rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer', color: '#1e40af', fontWeight: 600 }}
                       >
                         <i className={`fa-solid ${expandedBales[ord.id] !== undefined ? 'fa-chevron-up' : 'fa-layer-group'}`} style={{ marginRight: '0.25rem' }}></i>
                         {expandedBales[ord.id] !== undefined ? 'Hide' : 'Bale Plan'}
                       </button>
                     )}
+                    <button
+                      onClick={() => printBaleSlips(ord)}
+                      style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.15rem 0.55rem', fontSize: '0.75rem', cursor: 'pointer', color: '#0f172a', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                      title="Print Master Bale Dispatch Stickers for Gunny Bags"
+                    >
+                      <i className="fa-solid fa-print" style={{ color: '#2563eb' }}></i> Print Bale Labels
+                    </button>
                   </span>
                   <span>Received: {dateStr}</span>
                 </div>
@@ -240,9 +248,17 @@ export default function OrdersManager() {
                 {/* Expandable Bale Allocation Detail */}
                 {expandedBales[ord.id] && Array.isArray(expandedBales[ord.id]) && expandedBales[ord.id].length > 0 && (
                   <div style={{ marginTop: '0.75rem', background: '#f0f9ff', borderRadius: '8px', padding: '0.75rem', border: '1px solid #bae6fd' }}>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0369a1', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <i className="fa-solid fa-boxes-stacked" style={{ marginRight: '0.3rem' }}></i>
-                      Bale Allocation Plan ({expandedBales[ord.id].length} bales)
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <i className="fa-solid fa-boxes-stacked" style={{ marginRight: '0.3rem' }}></i>
+                        Bale Allocation Plan ({expandedBales[ord.id].length} bales)
+                      </div>
+                      <button
+                        onClick={() => printBaleSlips({ ...ord, bales: expandedBales[ord.id] })}
+                        style={{ background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: '4px', padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                      >
+                        <i className="fa-solid fa-print"></i> Print {expandedBales[ord.id].length} Labels
+                      </button>
                     </div>
                     {expandedBales[ord.id].map((bale) => (
                       <div key={bale.baleId} style={{ marginBottom: '0.5rem', paddingBottom: '0.5rem', borderBottom: '1px dashed #bae6fd' }}>
