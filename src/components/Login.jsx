@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { auth, signInWithEmailAndPassword, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from '../firebase';
+import { auth, signInWithEmailAndPassword, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult, sendPasswordResetEmail } from '../firebase';
 import { generateTotpSecret, verifyTotpCode } from '../utils/totpHelper';
 import { RateLimiter, sanitizeInput } from '../utils/security';
 import { verifyBiometricFingerprint } from '../utils/biometricHelper';
@@ -18,9 +18,11 @@ function checkIsAdminUser(idToken, userEmail) {
 }
 
 export default function Login({ onLoginSuccess }) {
-  const [email, setEmail] = useState(import.meta.env.VITE_ADMIN_EMAIL || 'govindasamy.textitle@gmail.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   
   // Two-Step Authentication State
   const [step, setStep] = useState(1); // 1 = Email/Pass, 2 = 6-Digit TOTP Code
@@ -34,6 +36,34 @@ export default function Login({ onLoginSuccess }) {
   const [lockoutSecs, setLockoutSecs] = useState(0);
   const [authenticatingBiometric, setAuthenticatingBiometric] = useState(false);
   const [honeypot, setHoneypot] = useState('');
+
+  // Forgot Password Handler
+  const handleForgotPassword = async () => {
+    setErrorMsg('');
+    const cleanEmail = sanitizeInput(email).trim();
+    if (!cleanEmail) {
+      setErrorMsg('Please enter your admin email above first, then click "Forgot Password?".');
+      return;
+    }
+
+    try {
+      setSendingReset(true);
+      await sendPasswordResetEmail(auth, cleanEmail);
+      setResetSent(true);
+      toast.success(`Password reset email sent to ${cleanEmail}! Check your inbox and spam folder.`, 'Reset Email Sent');
+    } catch (err) {
+      console.error('Password reset error:', err);
+      if (err.code === 'auth/user-not-found') {
+        setErrorMsg(`No account found with email "${cleanEmail}".`);
+      } else if (err.code === 'auth/invalid-email') {
+        setErrorMsg('Please enter a valid email address.');
+      } else {
+        setErrorMsg('Password Reset Failed: ' + (err.message || err.code));
+      }
+    } finally {
+      setSendingReset(false);
+    }
+  };
 
   // Step 1: Email & Password Validation with Rate Limiting
   const handlePrimaryAuth = async (e) => {
@@ -283,14 +313,14 @@ export default function Login({ onLoginSuccess }) {
             />
 
             <div className="form-group">
-              <label><i className="fa-solid fa-envelope"></i> Email / Username</label>
+              <label><i className="fa-solid fa-envelope"></i> Admin Email</label>
               <div className="input-icon-wrapper">
                 <input
                   type="email"
                   className="form-control"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={import.meta.env.VITE_ADMIN_EMAIL || "govindasamy.textitle@gmail.com"}
+                  placeholder="Enter admin email address"
                   required
                 />
                 <i className="fa-solid fa-user input-icon"></i>
@@ -298,7 +328,26 @@ export default function Login({ onLoginSuccess }) {
             </div>
 
             <div className="form-group">
-              <label><i className="fa-solid fa-lock"></i> Password</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                <label style={{ margin: 0 }}><i className="fa-solid fa-lock"></i> Password</label>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={sendingReset}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--brand-gold, #d97706)',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    padding: 0,
+                    textDecoration: 'underline'
+                  }}
+                >
+                  {sendingReset ? 'Sending link...' : 'Forgot Password?'}
+                </button>
+              </div>
               <div className="input-icon-wrapper">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -314,6 +363,13 @@ export default function Login({ onLoginSuccess }) {
                 ></i>
               </div>
             </div>
+
+            {resetSent && (
+              <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', color: '#166534', padding: '0.55rem 0.8rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <i className="fa-solid fa-circle-check" style={{ color: '#16a34a' }}></i>
+                <span>Password reset link sent to your email inbox! Please check inbox / spam.</span>
+              </div>
+            )}
 
             {errorMsg && (
               <div className="error-msg">
