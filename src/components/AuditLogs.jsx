@@ -60,7 +60,7 @@ export default function AuditLogs() {
               </tr>
             </thead>
             <tbody>
-              {logs.slice(0, 15).map((log) => {
+              {logs.map((log) => {
                 const dateStr = log.timestamp?.seconds
                   ? new Date(log.timestamp.seconds * 1000).toLocaleString('en-IN')
                   : 'Just now';

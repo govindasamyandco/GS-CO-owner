@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db, collection, onSnapshot, doc, updateDoc } from '../firebase';
+import { db, collection, onSnapshot, doc, updateDoc, query, orderBy, limit, getDoc } from '../firebase';
 import { toast } from '../utils/toast';
 
 export default function OrdersManager() {
@@ -7,11 +7,16 @@ export default function OrdersManager() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedBales, setExpandedBales] = useState({}); // { [orderId]: balesArray | null }
 
-  // Subscribe to real-time wholesale orders from Firestore
+  // Subscribe to real-time wholesale orders from Firestore (bounded to latest 50 orders)
   useEffect(() => {
-    const ordersRef = collection(db, 'orders');
-    const unsubscribe = onSnapshot(ordersRef, (snapshot) => {
+    const ordersQuery = query(
+      collection(db, 'orders'),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
       const fetched = snapshot.docs.map((d) => ({
         id: d.id,
         ...d.data()
@@ -41,6 +46,35 @@ export default function OrdersManager() {
     } catch (err) {
       console.error('Failed to update order status:', err);
       toast.error('Failed to update order status: ' + err.message, 'Update Error');
+    }
+  };
+
+  const toggleBaleDetail = async (orderId) => {
+    // If already loaded and visible, collapse
+    if (expandedBales[orderId] !== undefined) {
+      setExpandedBales((prev) => { const next = { ...prev }; delete next[orderId]; return next; });
+      return;
+    }
+
+    // 1. Check if the order document already contains the pre-computed bales array
+    const localOrder = orders.find((o) => o.id === orderId);
+    if (localOrder && Array.isArray(localOrder.bales) && localOrder.bales.length > 0) {
+      setExpandedBales((prev) => ({ ...prev, [orderId]: localOrder.bales }));
+      return;
+    }
+
+    // 2. Otherwise fetch bale detail from Firestore master_bales/{orderId}
+    try {
+      const snap = await getDoc(doc(db, 'master_bales', orderId));
+      if (snap.exists()) {
+        setExpandedBales((prev) => ({ ...prev, [orderId]: snap.data().bales || [] }));
+      } else {
+        setExpandedBales((prev) => ({ ...prev, [orderId]: null }));
+        toast.info('Bale allocation not yet calculated for this order.', 'No Bale Data');
+      }
+    } catch (err) {
+      console.warn('Failed to fetch bale detail:', err.message);
+      setExpandedBales((prev) => ({ ...prev, [orderId]: null }));
     }
   };
 
@@ -188,9 +222,50 @@ export default function OrdersManager() {
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b' }}>
-                  <span>Est. Bales: <strong>{ord.estBales || 1}</strong> • Total Units: <strong>{ord.totalUnits || 0}</strong></span>
+                  <span>
+                    Est. Bales: <strong>{ord.estBales || 1}</strong> • Total Units: <strong>{ord.totalUnits || 0}</strong>
+                    {ord.balesPacked && (
+                      <button
+                        onClick={() => toggleBaleDetail(ord.id)}
+                        style={{ marginLeft: '0.5rem', background: expandedBales[ord.id] !== undefined ? '#dbeafe' : '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.15rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer', color: '#1e40af', fontWeight: 600 }}
+                      >
+                        <i className={`fa-solid ${expandedBales[ord.id] !== undefined ? 'fa-chevron-up' : 'fa-layer-group'}`} style={{ marginRight: '0.25rem' }}></i>
+                        {expandedBales[ord.id] !== undefined ? 'Hide' : 'Bale Plan'}
+                      </button>
+                    )}
+                  </span>
                   <span>Received: {dateStr}</span>
                 </div>
+
+                {/* Expandable Bale Allocation Detail */}
+                {expandedBales[ord.id] && Array.isArray(expandedBales[ord.id]) && expandedBales[ord.id].length > 0 && (
+                  <div style={{ marginTop: '0.75rem', background: '#f0f9ff', borderRadius: '8px', padding: '0.75rem', border: '1px solid #bae6fd' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0369a1', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <i className="fa-solid fa-boxes-stacked" style={{ marginRight: '0.3rem' }}></i>
+                      Bale Allocation Plan ({expandedBales[ord.id].length} bales)
+                    </div>
+                    {expandedBales[ord.id].map((bale) => (
+                      <div key={bale.baleId} style={{ marginBottom: '0.5rem', paddingBottom: '0.5rem', borderBottom: '1px dashed #bae6fd' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0c4a6e' }}>
+                            <i className="fa-solid fa-cube" style={{ marginRight: '0.2rem' }}></i>{bale.baleId}
+                          </span>
+                          <div style={{ flex: 1, height: '6px', background: '#e0f2fe', borderRadius: '999px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${Math.min(100, parseFloat(bale.capacityPercent))}%`, background: parseFloat(bale.capacityPercent) >= 90 ? '#16a34a' : parseFloat(bale.capacityPercent) >= 60 ? '#d97706' : '#2563eb', borderRadius: '999px', transition: 'width 0.5s ease' }}></div>
+                          </div>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0369a1', whiteSpace: 'nowrap' }}>{bale.capacityPercent}% full</span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                          {bale.items.map((item) => (
+                            <span key={item.itemId} style={{ fontSize: '0.72rem', background: '#ffffff', border: '1px solid #bae6fd', borderRadius: '4px', padding: '0.1rem 0.4rem', color: '#0c4a6e' }}>
+                              {item.title}: {item.bundleQty}B · {item.capacityPercent}%
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

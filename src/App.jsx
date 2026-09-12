@@ -24,7 +24,12 @@ export default function App() {
       if (user) {
         try {
           const idToken = await user.getIdTokenResult(true);
-          const hasAdminClaim = idToken.claims.admin === true || user.email === (import.meta.env.VITE_ADMIN_EMAIL || 'govindasamy.textile@gmail.com');
+          const configuredAdmin = (import.meta.env.VITE_ADMIN_EMAIL || 'govindasamy.textitle@gmail.com').toLowerCase();
+          const userEmail = (user.email || '').toLowerCase();
+          const hasAdminClaim = idToken.claims.admin === true || 
+            userEmail === configuredAdmin || 
+            userEmail === 'govindasamy.textitle@gmail.com' ||
+            userEmail === 'govindasamy.textile@gmail.com';
           const totpVerified = sessionStorage.getItem('gsco_totp_verified') === 'true';
 
           if (hasAdminClaim && totpVerified) {
@@ -66,6 +71,12 @@ export default function App() {
             if (prev.some((p) => p.id === event.data.product.id)) return prev;
             return [event.data.product, ...prev];
           });
+        } else if (event.data?.type === 'PRODUCT_UPDATED') {
+          setProducts((prev) =>
+            prev.map((p) => (p.id === event.data.product.id ? { ...p, ...event.data.product } : p))
+          );
+        } else if (event.data?.type === 'PRODUCT_DELETED') {
+          setProducts((prev) => prev.filter((p) => p.id !== event.data.productId));
         } else if (event.data?.type === 'ORDER_PLACED') {
           const ord = event.data.order;
           toast.info(`Company: ${ord.companyName} | Phone: ${ord.phone} | Est. Bales: ${ord.estBales || 1}`, '🔔 Wholesale Order Received');
@@ -79,9 +90,8 @@ export default function App() {
         id: docSnap.id,
         ...docSnap.data()
       }));
-      if (fetched.length > 0) {
-        setProducts(fetched);
-      }
+      setProducts(fetched);
+      localStorage.setItem('gsco_catalog_products', JSON.stringify(fetched));
     }, (error) => {
       console.warn('Firestore real-time sync info:', error.message);
     });

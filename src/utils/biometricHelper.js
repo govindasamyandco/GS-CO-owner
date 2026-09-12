@@ -15,7 +15,7 @@ export async function verifyBiometricFingerprint() {
           rp: { name: "Govindasamy & Co Admin Security" },
           user: {
             id: new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]),
-            name: "govindasamy.textile@gmail.com",
+            name: "govindasamy.textitle@gmail.com",
             displayName: "Admin Owner (Fingerprint Protected)"
           },
           challenge: challenge,
@@ -37,15 +37,9 @@ export async function verifyBiometricFingerprint() {
       }
     } catch (err) {
       console.warn("Biometric authentication error or canceled by user:", err.message);
-      // Fallthrough to fallback prompt if user cancels or platform authenticator is not configured
+      return { success: false, reason: err.message || "Biometric authentication was cancelled or failed." };
     }
   }
 
-  // Fallback: Prompt for Master Admin Security Password to verify physical owner presence
-  const masterPass = prompt("🔒 BIOMETRIC / OWNER SECURITY CHECK:\n\nEnter Master Admin Password to unlock QR setup:");
-  if (masterPass === "admin123" || masterPass === "govindasamy123") {
-    return { success: true };
-  }
-
-  return { success: false, reason: "Fingerprint or Master Security check failed." };
+  return { success: false, reason: "Biometric authentication (Windows Hello / Touch ID) is not supported on this browser/device." };
 }

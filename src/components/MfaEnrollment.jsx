@@ -1,12 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import QRCode from 'qrcode';
 import { getTotpUri, verifyTotpCode } from '../utils/totpHelper';
 
 export default function MfaEnrollment({ secret, onComplete, onClose }) {
   const [testCode, setTestCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const canvasRef = useRef(null);
 
   const totpUri = getTotpUri(secret);
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(totpUri)}`;
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      QRCode.toCanvas(canvasRef.current, totpUri, {
+        width: 180,
+        margin: 2,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff'
+        }
+      }, (err) => {
+        if (err) {
+          console.error('QR code local render error:', err);
+          setErrorMsg('Failed to generate local QR code.');
+        }
+      });
+    }
+  }, [totpUri]);
 
   const handleVerifyEnrollment = async (e) => {
     e.preventDefault();
@@ -33,7 +52,16 @@ export default function MfaEnrollment({ secret, onComplete, onClose }) {
 
         {/* QR Code Container */}
         <div style={{ textAlign: 'center', margin: '1rem 0', background: '#f8fafc', padding: '1.2rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-          <img src={qrCodeUrl} alt="Authenticator QR Code" style={{ width: '180px', height: '180px', borderRadius: '8px', border: '3px solid var(--brand-gold)' }} />
+          <canvas
+            ref={canvasRef}
+            style={{
+              width: '180px',
+              height: '180px',
+              borderRadius: '8px',
+              border: '3px solid var(--brand-gold)',
+              display: 'inline-block'
+            }}
+          />
           <div style={{ marginTop: '0.85rem' }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Manual Setup Secret Key:</span>
             <code style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--brand-navy)', background: '#e2e8f0', padding: '0.25rem 0.65rem', borderRadius: '6px', letterSpacing: '2px' }}>{secret}</code>
@@ -47,9 +75,9 @@ export default function MfaEnrollment({ secret, onComplete, onClose }) {
               type="text"
               className="form-control"
               placeholder="000 000"
-              maxLength="6"
+              maxLength="7"
               value={testCode}
-              onChange={(e) => setTestCode(e.target.value)}
+              onChange={(e) => setTestCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               style={{ textAlign: 'center', fontSize: '1.4rem', letterSpacing: '6px', fontWeight: 800, color: 'var(--brand-navy)' }}
               autoFocus
               required

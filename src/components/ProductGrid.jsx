@@ -27,6 +27,8 @@ export default function ProductGrid({ products }) {
     baseRate: '',
     unit: 'per Bundle',
     bundlePieces: 10,
+    bundlesPerPack: 8,
+    stockStatus: 'IN_STOCK',
     stockQty: 100,
     seasonNotice: 'Price may differ based on the season item or the stock quantity',
     minOrderNotice: '',
@@ -48,6 +50,7 @@ export default function ProductGrid({ products }) {
       baseRate: prod.baseRate || '',
       unit: prod.unit || 'per Bundle',
       bundlePieces: prod.bundlePieces || 10,
+      bundlesPerPack: prod.bundlesPerPack || (prod.unit === 'per Piece' ? 120 : 8),
       stockStatus: isCurrentlyInStock ? 'IN_STOCK' : 'OUT_OF_STOCK',
       stockQty: isCurrentlyInStock ? 100 : 0,
       seasonNotice: prod.seasonNotice || 'Price may differ based on the season item or the stock quantity',
@@ -87,22 +90,7 @@ export default function ProductGrid({ products }) {
     
     try {
       const updatePayload = { isDisabled: newDisabled };
-
-      try {
-        await updateDoc(doc(db, 'products', prod.id), updatePayload);
-        try {
-          const updateProductFunction = httpsCallable(functions, 'updateProduct');
-          updateProductFunction({ productId: prod.id, ...updatePayload }).catch(() => {});
-        } catch (_) {}
-      } catch (dbErr) {
-        console.warn('Direct Firestore update notice, broadcasting locally:', dbErr.message);
-        try {
-          const updateProductFunction = httpsCallable(functions, 'updateProduct');
-          await updateProductFunction({ productId: prod.id, ...updatePayload });
-        } catch (funcErr) {
-          console.warn('Cloud Function bypass:', funcErr.message);
-        }
-      }
+      await updateDoc(doc(db, 'products', prod.id), updatePayload);
 
       // Update local storage & broadcast channel
       const cached = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
@@ -138,16 +126,7 @@ export default function ProductGrid({ products }) {
         stockQty: newInStock ? 100 : 0
       };
 
-      try {
-        await updateDoc(doc(db, 'products', prod.id), updatePayload);
-        try {
-          const updateProductFunction = httpsCallable(functions, 'updateProduct');
-          updateProductFunction({ productId: prod.id, ...updatePayload }).catch(() => {});
-        } catch (_) {}
-      } catch (dbErr) {
-        console.warn('Direct Firestore update error:', dbErr);
-      }
-
+      await updateDoc(doc(db, 'products', prod.id), updatePayload);
       toast.success(`Product "${prod.title}" marked as ${newInStock ? 'In Stock' : 'Out of Stock'}!`, 'Stock Updated');
     } catch (err) {
       console.error('Toggle stock error:', err);
@@ -169,13 +148,13 @@ export default function ProductGrid({ products }) {
           const imageRef = ref(storage, `product-images/${Date.now()}_${editForm.imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`);
           
           const storageTimeout = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Cloud Storage timeout after 2.5s')), 2500)
+            setTimeout(() => reject(new Error('Cloud Storage not provisioned or timeout')), 1500)
           );
 
           await Promise.race([uploadBytes(imageRef, editForm.imageFile), storageTimeout]);
           finalImageUrl = await getDownloadURL(imageRef);
         } catch (imgErr) {
-          console.warn('Image upload fallback to compressed Data URL:', imgErr);
+          console.warn('Image upload error during edit, using compressed Data URL fallback:', imgErr);
           try {
             finalImageUrl = await new Promise((resolve, reject) => {
               const reader = new FileReader();
@@ -185,11 +164,11 @@ export default function ProductGrid({ products }) {
                   try {
                     const canvas = document.createElement('canvas');
                     let w = img.width, h = img.height;
-                    if (w > 800) { h = Math.round((h * 800) / w); w = 800; }
+                    if (w > 600) { h = Math.round((h * 600) / w); w = 600; }
                     canvas.width = w; canvas.height = h;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, w, h);
-                    resolve(canvas.toDataURL('image/jpeg', 0.75));
+                    resolve(canvas.toDataURL('image/jpeg', 0.70));
                   } catch (cErr) { resolve(e.target.result); }
                 };
                 img.onerror = () => resolve(e.target.result);
@@ -198,19 +177,24 @@ export default function ProductGrid({ products }) {
               reader.onerror = (rErr) => reject(rErr);
               reader.readAsDataURL(editForm.imageFile);
             });
-          } catch (b64Err) {
-            finalImageUrl = editForm.imageUrl;
+            toast.info('Updated image attached & saved.', 'Photo Saved');
+          } catch (_) {
+            finalImageUrl = editForm.imageUrl || '/assets/logo.jpg';
           }
         }
       }
 
       const isEditInStock = editForm.stockStatus === 'IN_STOCK';
+      const finalEditBpp = Math.max(1, parseInt(editForm.bundlesPerPack, 10) || 1);
+      const finalEditPieces = editForm.unit === 'per Piece' ? 1 : (parseInt(editForm.bundlePieces, 10) || 1);
+
       const updatePayload = {
         title: editForm.title.trim(),
         category: editForm.category.trim(),
         baseRate: parseFloat(editForm.baseRate),
         unit: editForm.unit,
-        bundlePieces: parseInt(editForm.bundlePieces) || 0,
+        bundlePieces: finalEditPieces,
+        bundlesPerPack: finalEditBpp,
         inStock: isEditInStock,
         stockStatus: editForm.stockStatus,
         stockQty: isEditInStock ? 100 : 0,
@@ -221,21 +205,7 @@ export default function ProductGrid({ products }) {
         isDisabled: editForm.isDisabled
       };
 
-      try {
-        await updateDoc(doc(db, 'products', editingProduct.id), updatePayload);
-        try {
-          const updateProductFunction = httpsCallable(functions, 'updateProduct');
-          updateProductFunction({ productId: editingProduct.id, ...updatePayload }).catch(() => {});
-        } catch (_) {}
-      } catch (dbErr) {
-        console.warn('Direct Firestore update notice, broadcasting locally:', dbErr.message);
-        try {
-          const updateProductFunction = httpsCallable(functions, 'updateProduct');
-          await updateProductFunction({ productId: editingProduct.id, ...updatePayload });
-        } catch (funcErr) {
-          console.warn('Cloud Function bypass:', funcErr.message);
-        }
-      }
+      await updateDoc(doc(db, 'products', editingProduct.id), updatePayload);
 
       const cached = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
       const updatedList = cached.map(p => p.id === editingProduct.id ? { ...p, ...updatePayload } : p);
@@ -270,21 +240,7 @@ export default function ProductGrid({ products }) {
       type: 'danger',
       onConfirm: async () => {
         try {
-          try {
-            await deleteDoc(doc(db, 'products', id));
-            try {
-              const deleteProductFunction = httpsCallable(functions, 'deleteProduct');
-              deleteProductFunction({ productId: id }).catch(() => {});
-            } catch (_) {}
-          } catch (dbErr) {
-            console.warn('Direct Firestore delete notice, broadcasting locally:', dbErr.message);
-            try {
-              const deleteProductFunction = httpsCallable(functions, 'deleteProduct');
-              await deleteProductFunction({ productId: id });
-            } catch (funcErr) {
-              console.warn('Cloud Function bypass:', funcErr.message);
-            }
-          }
+          await deleteDoc(doc(db, 'products', id));
 
           const cached = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
           const updatedList = cached.filter(p => p.id !== id);
@@ -313,34 +269,32 @@ export default function ProductGrid({ products }) {
     { id: 'Long Mat', label: 'Long Mat', icon: 'fa-pen-ruler' }
   ];
 
-  const customTabs = firestoreCategories
-    .filter(catName => !baseCategories.some(b => b.id === catName))
-    .map(catName => ({ id: catName, label: catName, icon: 'fa-rug' }));
+  const categories = React.useMemo(() => {
+    const customTabs = firestoreCategories
+      .filter(catName => !baseCategories.some(b => b.id === catName))
+      .map(catName => ({ id: catName, label: catName, icon: 'fa-rug' }));
+    return [...baseCategories, ...customTabs];
+  }, [firestoreCategories]);
 
-  const categories = [...baseCategories, ...customTabs];
-
-  // Filter products by category
-  const categoryFiltered = products.filter(p => filterCategory === 'ALL' || p.category === filterCategory);
-
-  // Sorting logic: Disabled items ALWAYS move to the LAST; enabled items remain in their actual position!
-  const sortedProducts = [...categoryFiltered].sort((a, b) => {
-    const aDisabled = !!a.isDisabled;
-    const bDisabled = !!b.isDisabled;
-    if (aDisabled && !bDisabled) return 1;  // a is disabled, move to last
-    if (!aDisabled && bDisabled) return -1; // b is disabled, move to last
-    
-    if (sortOption === 'price-low') {
-      return a.baseRate - b.baseRate;
-    } else if (sortOption === 'price-high') {
-      return b.baseRate - a.baseRate;
-    } else if (sortOption === 'stock') {
-      return (b.stockQty || 0) - (a.stockQty || 0);
-    }
-
-    const aTime = a.createdAt?.seconds || (a.createdAt ? new Date(a.createdAt).getTime() / 1000 : 0);
-    const bTime = b.createdAt?.seconds || (b.createdAt ? new Date(b.createdAt).getTime() / 1000 : 0);
-    return bTime - aTime;
-  });
+  // Filter & Sort products with memoization
+  const sortedProducts = React.useMemo(() => {
+    const list = products.filter(p => filterCategory === 'ALL' || p.category === filterCategory);
+    return list.sort((a, b) => {
+      const aDisabled = !!a.isDisabled;
+      const bDisabled = !!b.isDisabled;
+      if (aDisabled && !bDisabled) return 1;  // a is disabled, move to last
+      if (!aDisabled && bDisabled) return -1; // b is disabled, move to last
+      
+      if (sortOption === 'price-low') {
+        return a.baseRate - b.baseRate;
+      } else if (sortOption === 'price-high') {
+        return b.baseRate - a.baseRate;
+      } else if (sortOption === 'stock') {
+        return (b.stockQty || 0) - (a.stockQty || 0);
+      }
+      return 0;
+    });
+  }, [products, filterCategory, sortOption]);
 
   return (
     <section className="catalog-section">
@@ -416,6 +370,12 @@ export default function ProductGrid({ products }) {
                   {isBulkUnit && (
                     <span className="card-bundle-pill">
                       {p.bundlePieces} Pcs/{p.unit.replace('per ', '')}
+                    </span>
+                  )}
+                  {p.bundlesPerPack && (
+                    <span className="card-bundle-pill" style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>
+                      <i className="fa-solid fa-cube" style={{ marginRight: '0.2rem' }}></i>
+                      1 Bale = {p.bundlesPerPack} {p.unit === 'per Piece' ? 'Pcs' : 'Bundles'}
                     </span>
                   )}
                   {isDisabled && (
@@ -732,7 +692,7 @@ export default function ProductGrid({ products }) {
                 <div className="form-group">
                   <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                     <i className="fa-solid fa-indian-rupee-sign" style={{ color: 'var(--brand-gold)' }}></i>
-                    Base Rate (₹)
+                    Rate (₹ / {editForm.unit.replace('per ', '')})
                   </label>
                   <input
                     type="number"
@@ -742,25 +702,43 @@ export default function ProductGrid({ products }) {
                     required
                     min="1"
                   />
+                  <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
+                    {editForm.unit === 'per Piece'
+                      ? 'Price for 1 single piece'
+                      : editForm.baseRate && editForm.bundlePieces
+                        ? `Price for 1 full bundle (~ ₹${Math.round(parseFloat(editForm.baseRate) / editForm.bundlePieces)} / pc)`
+                        : `Price for 1 full ${editForm.unit.replace('per ', '')}`}
+                  </small>
                 </div>
               </div>
 
-              {/* Rate Unit & Stock Availability (2-Column Grid) */}
+              {/* Selling Unit & Stock Availability (2-Column Grid) */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                     <i className="fa-solid fa-ruler-combined" style={{ color: 'var(--brand-gold)' }}></i>
-                    Rate Unit
+                    Selling Unit
                   </label>
                   <select
                     className="form-control"
                     value={editForm.unit}
-                    onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
+                    onChange={(e) => {
+                      const newUnit = e.target.value;
+                      setEditForm((prev) => ({
+                        ...prev,
+                        unit: newUnit,
+                        bundlePieces: newUnit === 'per Piece' ? 1 : (prev.bundlePieces || 10),
+                        minOrderNotice: newUnit === 'per Piece'
+                          ? 'Available for individual piece purchase'
+                          : `Purchased per full ${newUnit.replace('per ', '')} (${prev.bundlePieces || 10} Pcs only)`
+                      }));
+                    }}
                   >
                     <option value="per Bundle">per Bundle</option>
-                    <option value="per Dozen">per Dozen</option>
                     <option value="per Piece">per Piece</option>
+                    <option value="per Dozen">per Dozen</option>
                     <option value="per Meter">per Meter</option>
+                    <option value="per Feet">per Feet</option>
                   </select>
                 </div>
 
@@ -783,6 +761,56 @@ export default function ProductGrid({ products }) {
                     <option value="IN_STOCK">In Stock</option>
                     <option value="OUT_OF_STOCK">Out of Stock</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Packaging Details: Pieces per Bundle & Bundles / Pieces per Master Bale */}
+              <div style={{ display: 'grid', gridTemplateColumns: (editForm.unit === 'per Bundle' || editForm.unit === 'per Dozen') ? '1fr 1fr' : '1fr', gap: '1rem' }}>
+                {(editForm.unit === 'per Bundle' || editForm.unit === 'per Dozen') && (
+                  <div className="form-group">
+                    <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <i className="fa-solid fa-boxes-packing" style={{ color: 'var(--brand-gold)' }}></i>
+                      Pieces per {editForm.unit.replace('per ', '')}
+                    </label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={editForm.bundlePieces}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10) || 0;
+                        setEditForm((prev) => ({
+                          ...prev,
+                          bundlePieces: val,
+                          minOrderNotice: `Purchased per full ${prev.unit.replace('per ', '')} (${val} Pcs only)`
+                        }));
+                      }}
+                      min="1"
+                      required
+                    />
+                    <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
+                      Pieces in 1 bundle
+                    </small>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--brand-navy)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <i className="fa-solid fa-cube" style={{ color: 'var(--brand-gold)' }}></i>
+                    {(editForm.unit === 'per Bundle' || editForm.unit === 'per Dozen') ? 'Bundles / Master Bale' : 'Pieces / Master Bale'}
+                  </label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={editForm.bundlesPerPack}
+                    onChange={(e) => setEditForm({ ...editForm, bundlesPerPack: e.target.value })}
+                    min="1"
+                    required
+                  />
+                  <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
+                    {(editForm.unit === 'per Bundle' || editForm.unit === 'per Dozen')
+                      ? 'Bundles that fit into 1 Master Bale (e.g. 3 for Robo, 8 for 13x19)'
+                      : 'Total pieces that fit into 1 Master Bale'}
+                  </small>
                 </div>
               </div>
 

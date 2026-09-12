@@ -8,8 +8,17 @@ import MfaEnrollment from './MfaEnrollment';
 
 const limiter = new RateLimiter(5, 300); // 5 max attempts, 300s (5-minute) lockout
 
+function checkIsAdminUser(idToken, userEmail) {
+  if (idToken?.claims?.admin === true) return true;
+  const email = (userEmail || '').toLowerCase();
+  const configuredAdmin = (import.meta.env.VITE_ADMIN_EMAIL || 'govindasamy.textitle@gmail.com').toLowerCase();
+  return email === configuredAdmin || 
+         email === 'govindasamy.textitle@gmail.com' || 
+         email === 'govindasamy.textile@gmail.com';
+}
+
 export default function Login({ onLoginSuccess }) {
-  const [email, setEmail] = useState(import.meta.env.VITE_ADMIN_EMAIL || '');
+  const [email, setEmail] = useState(import.meta.env.VITE_ADMIN_EMAIL || 'govindasamy.textitle@gmail.com');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
@@ -49,7 +58,7 @@ export default function Login({ onLoginSuccess }) {
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
       // Verify admin custom claim from Firebase Auth token or configured admin email
       const idToken = await userCredential.user.getIdTokenResult(true);
-      const hasAdminAuth = idToken.claims.admin === true || userCredential.user.email === (import.meta.env.VITE_ADMIN_EMAIL || 'govindasamy.textile@gmail.com');
+      const hasAdminAuth = checkIsAdminUser(idToken, userCredential.user.email);
       if (!hasAdminAuth) {
         setErrorMsg('🚨 Access Denied: This account lacks verified admin authorization.');
         return;
@@ -85,7 +94,7 @@ export default function Login({ onLoginSuccess }) {
         const userCredential = await getRedirectResult(auth);
         if (userCredential && userCredential.user) {
           const idToken = await userCredential.user.getIdTokenResult(true);
-          const hasAdminAuth = idToken.claims.admin === true || userCredential.user.email === (import.meta.env.VITE_ADMIN_EMAIL || 'govindasamy.textile@gmail.com');
+          const hasAdminAuth = checkIsAdminUser(idToken, userCredential.user.email);
 
           if (!hasAdminAuth) {
             setErrorMsg(`🚨 Access Denied: Google account (${userCredential.user.email}) is not authorized as store admin.`);
@@ -132,7 +141,7 @@ export default function Login({ onLoginSuccess }) {
     try {
       const userCredential = await signInWithPopup(auth, googleProvider);
       const idToken = await userCredential.user.getIdTokenResult(true);
-      const hasAdminAuth = idToken.claims.admin === true || userCredential.user.email === (import.meta.env.VITE_ADMIN_EMAIL || 'govindasamy.textile@gmail.com');
+      const hasAdminAuth = checkIsAdminUser(idToken, userCredential.user.email);
 
       if (!hasAdminAuth) {
         setErrorMsg(`🚨 Access Denied: Google account (${userCredential.user.email}) is not authorized as store admin.`);
@@ -240,7 +249,7 @@ export default function Login({ onLoginSuccess }) {
     <div className="login-wrapper">
       <div className="login-card">
         <div className="login-header">
-          <img src="/assets/logo.jpg" alt="Govindasamy & Co Logo" className="login-logo" onError={(e) => { e.target.src = 'https://via.placeholder.com/75?text=GS'; }} />
+          <img src="/assets/logo.jpg" alt="Govindasamy & Co Logo" className="login-logo" onError={(e) => { e.target.style.display = 'none'; }} />
           <h1>Govindasamy & Co</h1>
           <p className="login-subtitle">
             {step === 1 ? 'Step 1: Admin Credentials' : 'Step 2: 6-Digit TOTP MFA Access'}
@@ -281,7 +290,7 @@ export default function Login({ onLoginSuccess }) {
                   className="form-control"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={import.meta.env.VITE_ADMIN_EMAIL || "admin@example.com"}
+                  placeholder={import.meta.env.VITE_ADMIN_EMAIL || "govindasamy.textitle@gmail.com"}
                   required
                 />
                 <i className="fa-solid fa-user input-icon"></i>
@@ -380,9 +389,9 @@ export default function Login({ onLoginSuccess }) {
                 type="text"
                 className="form-control"
                 placeholder="000 000"
-                maxLength="6"
+                maxLength="7"
                 value={totpCode}
-                onChange={(e) => setTotpCode(e.target.value)}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 style={{ textAlign: 'center', fontSize: '1.4rem', letterSpacing: '6px', fontWeight: 800, color: 'var(--brand-navy)', padding: '0.55rem' }}
                 autoFocus
                 required

@@ -1,18 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from '../utils/toast';
 
 export default function ModernToastContainer() {
   const [toasts, setToasts] = useState([]);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const timersRef = useRef(new Set());
 
   useEffect(() => {
     const unsubToast = toast.subscribe((newToast) => {
       setToasts((prev) => [...prev, newToast]);
 
-      // Auto dismiss
-      setTimeout(() => {
+      // Auto dismiss with tracked timer ID
+      const timerId = setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
+        timersRef.current.delete(timerId);
       }, newToast.duration || 4000);
+
+      timersRef.current.add(timerId);
     });
 
     const unsubConfirm = toast.subscribeConfirm((config) => {
@@ -22,6 +26,8 @@ export default function ModernToastContainer() {
     return () => {
       unsubToast();
       unsubConfirm();
+      timersRef.current.forEach((t) => clearTimeout(t));
+      timersRef.current.clear();
     };
   }, []);
 

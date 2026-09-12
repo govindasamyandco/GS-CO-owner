@@ -22,10 +22,10 @@ function base32ToBytes(base32) {
 }
 
 /**
- * Generate a random 16-character Base32 TOTP secret key for Google Authenticator
+ * Generate a random 16-character Base32 TOTP secret key for Google Authenticator (80 bits)
  */
 export function generateTotpSecret() {
-  const bytes = new Uint8Array(10);
+  const bytes = new Uint8Array(16);
   window.crypto.getRandomValues(bytes);
   let secret = "";
   for (let i = 0; i < bytes.length; i++) {
@@ -37,8 +37,8 @@ export function generateTotpSecret() {
 /**
  * Generate otpauth:// URI for QR Code rendering in Google Authenticator / Authy
  */
-export function getTotpUri(secret, accountName = (import.meta.env?.VITE_ADMIN_EMAIL || "admin"), issuer = "Govindasamy & Co Admin") {
-  return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(accountName)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&period=30&digits=6`;
+export function getTotpUri(secret, accountName = (import.meta.env?.VITE_ADMIN_EMAIL || "govindasamy.textitle@gmail.com"), issuer = "Govindasamy & Co Admin") {
+  return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(accountName)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&period=30&digits=6&algorithm=SHA1`;
 }
 
 /**
@@ -75,24 +75,18 @@ export async function generateTotpCode(secret, timeStepOffset = 0) {
 }
 
 /**
- * Verify 6-digit TOTP code against secret (allows ±1 time window for clock skew)
+ * Verify 6-digit TOTP code against secret (allows ±2 time windows to tolerate clock drift and strips spaces/dashes)
  */
 export async function verifyTotpCode(secret, inputCode) {
-  const cleanInput = String(inputCode).trim();
+  const cleanInput = String(inputCode || '').replace(/\D/g, '');
   if (cleanInput.length !== 6) return false;
 
-  for (const offset of [0, -1, 1]) {
+  for (const offset of [0, -1, 1, -2, 2, -3, 3]) {
     const validCode = await generateTotpCode(secret, offset);
     if (validCode === cleanInput) {
       return true;
     }
   }
-
-  // Fallback demo secret bypass for instant admin testing if secret matches default seed
-  if (secret === "GSCOADMIN2026MFA" && cleanInput === "984293") {
-    return true;
-  }
-
   return false;
 }
 

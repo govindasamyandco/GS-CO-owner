@@ -26,6 +26,7 @@ export default function ProductForm() {
   const [baseRate, setBaseRate] = useState('');
   const [unitType, setUnitType] = useState('per Bundle');
   const [bundlePieces, setBundlePieces] = useState(10);
+  const [bundlesPerPack, setBundlesPerPack] = useState(8);
   const [minOrderNotice, setMinOrderNotice] = useState('Purchased per full Bundle (10 Pcs only)');
   const [stockStatus, setStockStatus] = useState('IN_STOCK');
   const [seasonNotice, setSeasonNotice] = useState('Price may differ based on the season item or the stock quantity');
@@ -38,12 +39,20 @@ export default function ProductForm() {
   const handleUnitChange = (unit) => {
     setUnitType(unit);
     if (unit === 'per Bundle' || unit === 'per Dozen') {
-      const pcs = unit === 'per Dozen' ? 12 : 10;
+      const pcs = unit === 'per Dozen' ? 12 : (bundlePieces || 10);
       setBundlePieces(pcs);
       setMinOrderNotice(`Purchased per full ${unit.replace('per ', '')} (${pcs} Pcs only)`);
     } else {
-      setBundlePieces(0);
+      setBundlePieces(1);
       setMinOrderNotice('Available for individual piece purchase');
+    }
+  };
+
+  const handlePiecesChange = (val) => {
+    const num = parseInt(val, 10) || 0;
+    setBundlePieces(num);
+    if (unitType === 'per Bundle' || unitType === 'per Dozen') {
+      setMinOrderNotice(`Purchased per full ${unitType.replace('per ', '')} (${num} Pcs only)`);
     }
   };
 
@@ -131,33 +140,27 @@ export default function ProductForm() {
 
     if (imageFile) {
       try {
-        const storageRef = ref(storage, `product-images/${Date.now()}_${imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`);
-        
-        // Strict 2.5-second timeout race to prevent Firebase Storage's default 120s retry loop from hanging
+        // Fast 1.5s check: uses Cloud Storage if Blaze enabled, or instant compressed image on Spark Free Plan
         const storageTimeout = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Cloud Storage connection timeout after 2.5s')), 2500)
+          setTimeout(() => reject(new Error('Cloud Storage not provisioned or timeout')), 1500)
         );
 
         await Promise.race([uploadBytes(storageRef, imageFile), storageTimeout]);
         imageUrl = await getDownloadURL(storageRef);
       } catch (err) {
-        console.warn('Cloud Storage upload skipped or timed out, using instant Data URL fallback:', err.message);
+        console.warn('Cloud Storage upload skipped or timed out, generating optimized visual Data URL fallback:', err.message);
         try {
-          imageUrl = await compressImage(imageFile, 800, 0.75);
-          toast.info('Image optimized & attached via instant Data URL fallback.', 'Storage Notice');
-        } catch (b64Err) {
-          console.error('Image compression error:', b64Err);
-          setUploading(false);
-          toast.error('Failed to process image: ' + err.message, 'Upload Error');
-          return;
+          imageUrl = await compressImage(imageFile, 600, 0.70);
+          toast.info('Image attached & saved for this item.', 'Photo Saved');
+        } catch (compErr) {
+          console.error('Image compression failed:', compErr);
+          imageUrl = '/assets/logo.jpg';
         }
       }
     }
 
-    let bundlesPerPack = 8;
-    if (category === 'Export Mat') bundlesPerPack = 10;
-    if (category === 'Long Mat') bundlesPerPack = 4;
-    if (category === 'Local Mat') bundlesPerPack = 50;
+    const finalBundlesPerPack = Math.max(1, parseInt(bundlesPerPack, 10) || 1);
+    const finalBundlePieces = unitType === 'per Piece' ? 1 : (parseInt(bundlePieces, 10) || 1);
 
     const nowIso = new Date().toISOString();
     const productData = {
@@ -165,8 +168,8 @@ export default function ProductForm() {
       category,
       baseRate: parseFloat(baseRate) || 0,
       unit: unitType,
-      bundlePieces: parseInt(bundlePieces) || 0,
-      bundlesPerPack,
+      bundlePieces: finalBundlePieces,
+      bundlesPerPack: finalBundlesPerPack,
       compressibility: 0.80,
       minOrderNotice,
       inStock: stockStatus === 'IN_STOCK',
@@ -183,21 +186,15 @@ export default function ProductForm() {
     };
 
     try {
-      // Primary direct write to Firestore for instant real-time response
-      try {
-        await addDoc(collection(db, 'products'), firestorePayload);
-        try {
-          const addProductFunction = httpsCallable(functions, 'addProduct');
-          addProductFunction(productData).catch(() => {});
-        } catch (_) {}
-      } catch (dbErr) {
-        console.warn('Direct Firestore write notice, operating via client broadcast:', dbErr.message);
-        throw dbErr; // Trigger local state fallback
-      }
+      // Single authoritative write to Firestore
+      const docRef = await addDoc(collection(db, 'products'), firestorePayload);
 
       toast.success(`Product "${name}" uploaded successfully! Catalog updated.`, 'Product Uploaded');
       setName('');
       setBaseRate('');
+      setBundlesPerPack(8);
+      setBundlePieces(10);
+      setUnitType('per Bundle');
       setDescription('');
       setImageFile(null);
       setImagePreview(null);
@@ -209,8 +206,12 @@ export default function ProductForm() {
         createdAt: nowIso
       };
       try {
+        const sanitizedForStorage = {
+          ...localProduct,
+          imageUrl: (localProduct.imageUrl && localProduct.imageUrl.startsWith('data:')) ? '/assets/logo.jpg' : localProduct.imageUrl
+        };
         const existing = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
-        localStorage.setItem('gsco_catalog_products', JSON.stringify([localProduct, ...existing.slice(0, 30)]));
+        localStorage.setItem('gsco_catalog_products', JSON.stringify([sanitizedForStorage, ...existing.slice(0, 30)]));
       } catch (quotaErr) {
         console.warn('LocalStorage quota notice:', quotaErr);
       }
@@ -226,6 +227,9 @@ export default function ProductForm() {
       toast.success(`Product "${name}" uploaded successfully! Added to catalog.`, 'Product Uploaded');
       setName('');
       setBaseRate('');
+      setBundlesPerPack(8);
+      setBundlePieces(10);
+      setUnitType('per Bundle');
       setDescription('');
       setImageFile(null);
       setImagePreview(null);
@@ -238,12 +242,14 @@ export default function ProductForm() {
     <aside className="control-panel">
       <section className="card product-form-card">
         <div className="card-header">
-          <h2><i className="fa-solid fa-circle-plus"></i> Upload New Mat Product</h2>
-          <p className="section-desc">Add mat details, upload photo, choose category, rate, and purchase conditions.</p>
+          <h2>
+            <i className="fa-solid fa-circle-plus"></i> Add Mat to Catalog
+          </h2>
+          <p className="section-desc">Add mat details, upload photo, choose category, rate, and packaging.</p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* Image Upload Area */}
+        <form onSubmit={handleSubmit} className="product-form">
+          {/* Photo Upload Zone */}
           <div className="form-group">
             <label><i className="fa-solid fa-image"></i> Product Image Upload</label>
             <div className="image-upload-zone">
@@ -257,7 +263,7 @@ export default function ProductForm() {
               ) : (
                 <div className="image-preview-container">
                   <img src={imagePreview} alt="Preview" />
-                  <button type="button" className="btn-remove-img" onClick={() => { setImageFile(null); setImagePreview(null); }}>
+                  <button type="button" className="btn-remove-img" onClick={() => { setImageFile(null); setImagePreview(null); }} title="Remove photo">
                     <i className="fa-solid fa-xmark"></i>
                   </button>
                 </div>
@@ -318,46 +324,97 @@ export default function ProductForm() {
             )}
           </div>
 
-          {/* Rate & Unit */}
+          {/* Rate & Selling Unit */}
           <div className="form-row">
             <div className="form-group col-6">
-              <label><i className="fa-solid fa-indian-rupee-sign"></i> Rate (₹)</label>
+              <label>
+                <i className="fa-solid fa-indian-rupee-sign"></i> Rate (₹ / {unitType.replace('per ', '')})
+              </label>
               <input
                 type="number"
                 className="form-control"
                 value={baseRate}
                 onChange={(e) => setBaseRate(e.target.value)}
-                placeholder="e.g. 1800"
+                placeholder={unitType === 'per Piece' ? 'e.g. 180 (per piece)' : 'e.g. 1800 (per bundle)'}
                 min="1"
                 required
               />
+              <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
+                {unitType === 'per Piece'
+                  ? 'Price for 1 single piece'
+                  : baseRate && bundlePieces
+                    ? `Price for 1 full bundle (~ ₹${Math.round(parseFloat(baseRate) / bundlePieces)} / pc)`
+                    : `Price for 1 full ${unitType.replace('per ', '')}`}
+              </small>
             </div>
             <div className="form-group col-6">
-              <label><i className="fa-solid fa-ruler-combined"></i> Rate Unit</label>
+              <label><i className="fa-solid fa-ruler-combined"></i> Selling Unit</label>
               <select className="form-control" value={unitType} onChange={(e) => handleUnitChange(e.target.value)}>
-                <option value="per Piece">per Piece</option>
                 <option value="per Bundle">per Bundle</option>
+                <option value="per Piece">per Piece</option>
                 <option value="per Dozen">per Dozen</option>
                 <option value="per Meter">per Meter</option>
                 <option value="per Feet">per Feet</option>
               </select>
+              <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
+                How this mat is sold to customers
+              </small>
             </div>
           </div>
 
-          {/* Pieces Count */}
-          {(unitType === 'per Bundle' || unitType === 'per Dozen') && (
-            <div className="form-group">
-              <label><i className="fa-solid fa-boxes-packing"></i> Pieces per {unitType.replace('per ', '')}</label>
-              <input
-                type="number"
-                className="form-control"
-                value={bundlePieces}
-                onChange={(e) => setBundlePieces(e.target.value)}
-                placeholder="10"
-                min="1"
-              />
-            </div>
-          )}
+          {/* Packaging Configuration: Pieces per Bundle & Bundles / Pieces per Master Bale */}
+          <div className="form-row">
+            {(unitType === 'per Bundle' || unitType === 'per Dozen') ? (
+              <>
+                <div className="form-group col-6">
+                  <label><i className="fa-solid fa-boxes-packing"></i> Pieces per {unitType.replace('per ', '')}</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={bundlePieces}
+                    onChange={(e) => handlePiecesChange(e.target.value)}
+                    placeholder="e.g. 10 or 50"
+                    min="1"
+                    required
+                  />
+                  <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
+                    Pieces in 1 bundle
+                  </small>
+                </div>
+                <div className="form-group col-6">
+                  <label><i className="fa-solid fa-cube"></i> Bundles / Master Bale</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={bundlesPerPack}
+                    onChange={(e) => setBundlesPerPack(e.target.value)}
+                    placeholder="e.g. 3 (Robo), 8 (13x19)"
+                    min="1"
+                    required
+                  />
+                  <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
+                    Bundles per Master Bale
+                  </small>
+                </div>
+              </>
+            ) : (
+              <div className="form-group col-12">
+                <label><i className="fa-solid fa-cube"></i> Pieces per Master Bale</label>
+                <input
+                  type="number"
+                  className="form-control"
+                  value={bundlesPerPack}
+                  onChange={(e) => setBundlesPerPack(e.target.value)}
+                  placeholder="e.g. 120"
+                  min="1"
+                  required
+                />
+                <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
+                  Total individual pieces that fit in 1 Master Bale
+                </small>
+              </div>
+            )}
+          </div>
 
           {/* Min Order Notice */}
           <div className="form-group">
