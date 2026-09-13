@@ -1,6 +1,13 @@
 import React from 'react';
 
-export default function Header({ totalProducts, onLogout }) {
+export default function Header({
+  totalProducts,
+  onLogout,
+  onOpenBaleInfo,
+  activeView = 'CATALOG',
+  onNavigateView,
+  pendingOrdersCount = 0
+}) {
   return (
     <header className="top-nav">
       <div className="nav-container">
@@ -20,10 +27,39 @@ export default function Header({ totalProducts, onLogout }) {
         </div>
 
         <div className="nav-actions">
-          <div className="admin-status-pill">
+          {/* Navigation View Switchers */}
+          <button
+            type="button"
+            className={`admin-status-pill nav-view-tab ${activeView === 'CATALOG' ? 'active-nav-tab' : ''}`}
+            onClick={() => onNavigateView && onNavigateView('CATALOG')}
+            title="Switch to Catalog & Product Management"
+          >
             <i className="fa-solid fa-boxes-stacked"></i>
-            <span>{totalProducts} Products</span>
-          </div>
+            <span>Catalog ({totalProducts})</span>
+          </button>
+
+          <button
+            type="button"
+            className={`admin-status-pill nav-view-tab ${activeView === 'ORDERS' ? 'active-nav-tab' : ''}`}
+            onClick={() => onNavigateView && onNavigateView('ORDERS')}
+            title="Open Wholesale Customer Orders Page"
+          >
+            <i className="fa-solid fa-file-invoice-dollar" style={{ color: activeView === 'ORDERS' ? '#ffffff' : '#2563eb' }}></i>
+            <span>Wholesale Orders</span>
+            {pendingOrdersCount > 0 && (
+              <span className="nav-pending-badge">{pendingOrdersCount}</span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            className="admin-status-pill btn-bale-info-nav"
+            onClick={onOpenBaleInfo}
+            title="Click to view & edit Common Master Bale Rate"
+          >
+            <i className="fa-solid fa-cube" style={{ color: '#0284c7' }}></i>
+            <span>Bale Info</span>
+          </button>
 
           <div className="admin-status-pill admin-badge-glow">
             <i className="fa-solid fa-shield-halved"></i>

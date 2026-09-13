@@ -83,6 +83,7 @@ export default function LottieAnimation({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    margin: '0 auto',
     overflow: 'hidden',
     ...style
   };

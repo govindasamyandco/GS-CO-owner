@@ -5,6 +5,7 @@ import Header from './components/Header';
 import ProductForm from './components/ProductForm';
 import ProductGrid from './components/ProductGrid';
 import OrdersManager from './components/OrdersManager';
+import BaleInfoModal from './components/BaleInfoModal';
 import AuditLogs from './components/AuditLogs';
 import ModernToastContainer from './components/ModernToastContainer';
 import LottieAnimation from './components/LottieAnimation';
@@ -17,6 +18,9 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [products, setProducts] = useState([]);
+  const [isBaleInfoModalOpen, setIsBaleInfoModalOpen] = useState(false);
+  const [activeView, setActiveView] = useState('CATALOG'); // 'CATALOG' | 'ORDERS'
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const lastActivityRef = useRef(Date.now());
 
   // Listen to Firebase Auth state & verify admin custom claim
@@ -80,13 +84,14 @@ export default function App() {
           setProducts((prev) => prev.filter((p) => p.id !== event.data.productId));
         } else if (event.data?.type === 'ORDER_PLACED') {
           const ord = event.data.order;
+          setPendingOrdersCount((c) => c + 1);
           toast.info(`Company: ${ord.companyName} | Phone: ${ord.phone} | Est. Bales: ${ord.estBales || 1}`, '🔔 Wholesale Order Received');
         }
       };
     }
 
     const productsRef = collection(db, 'products');
-    const unsubscribe = onSnapshot(productsRef, (snapshot) => {
+    const unsubscribeProducts = onSnapshot(productsRef, (snapshot) => {
       const fetched = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data()
@@ -97,8 +102,20 @@ export default function App() {
       console.warn('Firestore real-time sync info:', error.message);
     });
 
+    // Real-time listener for pending orders count
+    const ordersRef = collection(db, 'orders');
+    const unsubscribeOrders = onSnapshot(ordersRef, (snapshot) => {
+      const pending = snapshot.docs.filter(
+        (d) => d.data().status === 'PENDING' || !d.data().status
+      ).length;
+      setPendingOrdersCount(pending);
+    }, (err) => {
+      console.warn('Orders count sync info:', err.message);
+    });
+
     return () => {
-      unsubscribe();
+      unsubscribeProducts();
+      unsubscribeOrders();
       if (channel) channel.close();
     };
   }, [isLoggedIn]);
@@ -165,13 +182,32 @@ export default function App() {
   return (
     <div className="app-container">
       <ModernToastContainer />
-      <Header totalProducts={products.length} onLogout={handleLogout} />
-      <main className="main-layout">
-        <ProductForm />
-        <ProductGrid products={products} />
-        <OrdersManager />
-        <AuditLogs />
-      </main>
+      <Header
+        totalProducts={products.length}
+        onLogout={handleLogout}
+        onOpenBaleInfo={() => setIsBaleInfoModalOpen(true)}
+        activeView={activeView}
+        onNavigateView={(view) => setActiveView(view)}
+        pendingOrdersCount={pendingOrdersCount}
+      />
+
+      {activeView === 'CATALOG' ? (
+        <main className="main-layout">
+          <ProductForm />
+          <ProductGrid products={products} />
+          <AuditLogs />
+        </main>
+      ) : (
+        <main className="orders-page-layout">
+          <OrdersManager />
+        </main>
+      )}
+
+      {/* Bale Info & Global Rate Configuration Pop-up Modal */}
+      <BaleInfoModal
+        isOpen={isBaleInfoModalOpen}
+        onClose={() => setIsBaleInfoModalOpen(false)}
+      />
     </div>
   );
 }

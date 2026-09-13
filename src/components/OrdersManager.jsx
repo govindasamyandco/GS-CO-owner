@@ -1,15 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { db, collection, onSnapshot, doc, updateDoc, query, orderBy, limit, getDoc } from '../firebase';
+import { db, collection, onSnapshot, doc, updateDoc, setDoc, serverTimestamp, query, orderBy, limit, getDoc } from '../firebase';
 import { toast } from '../utils/toast';
 import { printBaleSlips } from '../utils/baleSlipGenerator';
 import LottieAnimation from './LottieAnimation';
 
-export default function OrdersManager() {
+export default function OrdersManager({ onBackToCatalog }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedBales, setExpandedBales] = useState({}); // { [orderId]: balesArray | null }
+  const [globalBaleRate, setGlobalBaleRate] = useState(100);
+  const [editingOrderRate, setEditingOrderRate] = useState({}); // { [orderId]: string }
+
+  // Subscribe to global master bale rate from Firestore settings/master_bale_config
+  useEffect(() => {
+    const configDocRef = doc(db, 'settings', 'master_bale_config');
+    const unsubscribeConfig = onSnapshot(configDocRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const activeRate = data.rate !== undefined && data.rate !== null ? Number(data.rate) : 100;
+        setGlobalBaleRate(activeRate);
+      } else {
+        // Initialize default ₹100 if document does not exist
+        setDoc(configDocRef, {
+          rate: 100,
+          unit: 'per Master Bale',
+          description: 'Global default rate per packed Master Bale applied to all customer orders',
+          updatedAt: serverTimestamp()
+        }, { merge: true }).catch(() => {});
+      }
+    }, (err) => {
+      console.warn('Master bale config sync notice:', err.message);
+    });
+
+    return () => unsubscribeConfig();
+  }, []);
 
   // Subscribe to real-time wholesale orders from Firestore (bounded to latest 50 orders)
   useEffect(() => {
@@ -48,6 +74,37 @@ export default function OrdersManager() {
     } catch (err) {
       console.error('Failed to update order status:', err);
       toast.error('Failed to update order status: ' + err.message, 'Update Error');
+    }
+  };
+
+  const handleUpdateOrderBaleRate = async (ord, newRateStr) => {
+    const newRate = parseFloat(newRateStr);
+    if (isNaN(newRate) || newRate < 0) {
+      toast.error('Please enter a valid non-negative rate (e.g. 100).', 'Invalid Rate');
+      return;
+    }
+    const itemsSubtotal = ord.itemsSubtotal !== undefined
+      ? ord.itemsSubtotal
+      : (ord.items || []).reduce((s, item) => s + ((item.qty || 1) * (item.unitRate || item.baseRate || 0)), 0);
+    const estBales = ord.estBales || 1;
+    const masterBaleTotal = estBales * newRate;
+    const grandTotal = itemsSubtotal + masterBaleTotal;
+
+    try {
+      await updateDoc(doc(db, 'orders', ord.id), {
+        masterBaleRate: newRate,
+        masterBaleTotal,
+        grandTotal
+      });
+      setEditingOrderRate((prev) => {
+        const next = { ...prev };
+        delete next[ord.id];
+        return next;
+      });
+      toast.success(`Updated Bale Rate for ${ord.companyName || 'order'} to ₹${newRate}/bale!`, 'Order Rate Updated');
+    } catch (err) {
+      console.error('Failed to update order bale rate:', err);
+      toast.error('Failed to update rate: ' + err.message, 'Update Failed');
     }
   };
 
@@ -92,219 +149,367 @@ export default function OrdersManager() {
 
   const pendingCount = orders.filter(o => o.status === 'PENDING' || !o.status).length;
   const confirmedCount = orders.filter(o => o.status === 'CONFIRMED').length;
+  const shippedCount = orders.filter(o => o.status === 'SHIPPED').length;
+  const cancelledCount = orders.filter(o => o.status === 'CANCELLED').length;
 
   return (
-    <section className="admin-card orders-manager-section" style={{ marginTop: '2rem' }}>
-      <div className="card-header-flex" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
-        <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <i className="fa-solid fa-file-invoice-dollar" style={{ color: '#2563eb' }}></i>
-            Wholesale Customer Orders ({orders.length})
-          </h2>
-          <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.15rem' }}>
-            Real-time wholesale inquiries submitted from the Customer Portal
-          </p>
+    <div className="orders-page-container">
+      {/* Top Header & Summary Bar */}
+      <div className="orders-page-header">
+        <div className="header-left-group">
+          <div>
+            <h1 className="orders-page-title">
+              <i className="fa-solid fa-file-invoice-dollar" style={{ color: '#0284c7' }}></i>
+              Wholesale Customer Orders
+            </h1>
+            <p className="orders-page-subtitle">
+              Manage real-time customer inquiries, packing, dispatch stickers, and invoices
+            </p>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.8rem', background: '#fef3c7', color: '#92400e', padding: '0.25rem 0.6rem', borderRadius: '999px', fontWeight: 600 }}>
-            {pendingCount} Pending
+        {/* Status Counts Bar */}
+        <div className="orders-status-summary">
+          <span className="stat-pill stat-total">
+            Total: <strong>{orders.length}</strong>
           </span>
-          <span style={{ fontSize: '0.8rem', background: '#dcfce7', color: '#166534', padding: '0.25rem 0.6rem', borderRadius: '999px', fontWeight: 600 }}>
-            {confirmedCount} Confirmed
+          <span className="stat-pill stat-pending">
+            <i className="fa-solid fa-clock"></i> {pendingCount} Pending
           </span>
+          <span className="stat-pill stat-confirmed">
+            <i className="fa-solid fa-circle-check"></i> {confirmedCount} Confirmed
+          </span>
+          {shippedCount > 0 && (
+            <span className="stat-pill stat-shipped">
+              <i className="fa-solid fa-truck-fast"></i> {shippedCount} Shipped
+            </span>
+          )}
+          {cancelledCount > 0 && (
+            <span className="stat-pill stat-cancelled">
+              <i className="fa-solid fa-ban"></i> {cancelledCount} Cancelled
+            </span>
+          )}
         </div>
       </div>
 
-      <div className="filter-controls" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-        <input
-          type="text"
-          placeholder="Search by company, person, or phone..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="form-input"
-          style={{ flex: '1', minWidth: '220px', padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-        />
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="form-select"
-          style={{ width: '180px', padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-        >
-          <option value="ALL">All Statuses</option>
-          <option value="PENDING">Pending Inquiry</option>
-          <option value="CONFIRMED">Confirmed Order</option>
-          <option value="SHIPPED">Dispatched / Shipped</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
+      {/* Filter & Search Bar */}
+      <div className="orders-filter-bar">
+        <div className="search-input-wrapper">
+          <i className="fa-solid fa-magnifying-glass search-icon"></i>
+          <input
+            type="text"
+            placeholder="Search by company name, contact person, phone, or delivery address..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="orders-search-input"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              className="btn-clear-search"
+              onClick={() => setSearchTerm('')}
+              title="Clear search"
+            >
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+          )}
+        </div>
+
+        <div className="filter-select-wrapper">
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="orders-status-select"
+          >
+            <option value="ALL">All Statuses ({orders.length})</option>
+            <option value="PENDING">Pending Inquiry ({pendingCount})</option>
+            <option value="CONFIRMED">Confirmed Order ({confirmedCount})</option>
+            <option value="SHIPPED">Dispatched / Shipped ({shippedCount})</option>
+            <option value="CANCELLED">Cancelled ({cancelledCount})</option>
+          </select>
+        </div>
       </div>
 
+      {/* Orders Content Area */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-          <LottieAnimation animationPath="/assets/loading.json" width={110} height={110} />
-          <p style={{ marginTop: '0.5rem', fontWeight: 600 }}>Syncing orders from Cloud Firestore...</p>
+        <div className="orders-loading-state">
+          <LottieAnimation animationPath="/assets/loading.json" width={120} height={120} />
+          <p>Syncing orders in real-time from Cloud Firestore...</p>
         </div>
       ) : filteredOrders.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '2.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+        <div className="orders-empty-state">
           <LottieAnimation animationPath="/assets/Error 404.json" width={180} height={160} />
-          <h3 style={{ fontSize: '1.05rem', color: '#334155', fontWeight: 700, marginTop: '0.5rem' }}>No Customer Orders Found</h3>
-          <p style={{ fontSize: '0.85rem', color: '#64748b' }}>Customer inquiries submitted via the User app will appear here automatically.</p>
+          <h3>No Orders Found</h3>
+          <p>
+            {searchTerm || filterStatus !== 'ALL'
+              ? 'No orders match your filter criteria. Try adjusting your search term.'
+              : 'Wholesale inquiries submitted from the Customer Portal will appear here automatically.'}
+          </p>
+          {(searchTerm || filterStatus !== 'ALL') && (
+            <button
+              type="button"
+              className="btn-reset-filters"
+              onClick={() => { setSearchTerm(''); setFilterStatus('ALL'); }}
+            >
+              Reset Filters
+            </button>
+          )}
         </div>
       ) : (
-        <div className="orders-grid" style={{ display: 'grid', gap: '1rem' }}>
+        <div className="orders-card-grid">
           {filteredOrders.map((ord) => {
             const dateStr = ord.createdAt?.seconds 
-              ? new Date(ord.createdAt.seconds * 1000).toLocaleString('en-IN')
+              ? new Date(ord.createdAt.seconds * 1000).toLocaleString('en-IN', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
               : ord.createdAt ? new Date(ord.createdAt).toLocaleString('en-IN') : 'Just now';
 
             const cleanPhone = (ord.phone || '').replace(/[^0-9]/g, '');
 
+            const itemsSubtotal = ord.itemsSubtotal !== undefined
+              ? ord.itemsSubtotal
+              : (ord.items || []).reduce((s, item) => s + ((item.qty || 1) * (item.unitRate || item.baseRate || 0)), 0);
+            
+            const baleRate = ord.masterBaleRate !== undefined && ord.masterBaleRate !== null ? Number(ord.masterBaleRate) : globalBaleRate;
+            const estBales = ord.estBales || 1;
+            const baleTotal = ord.masterBaleTotal !== undefined && ord.masterBaleRate !== undefined ? Number(ord.masterBaleTotal) : (estBales * baleRate);
+            const grandTotal = itemsSubtotal + baleTotal;
+
             return (
-              <div key={ord.id} className="order-card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
-                  <div>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>
-                      🏢 {ord.companyName || 'Wholesale Buyer'}
-                    </h3>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      👤 {ord.contactPerson || 'N/A'} • 📞 {ord.phone} {ord.gstNumber && ord.gstNumber !== 'N/A' ? `• GST: ${ord.gstNumber}` : ''}
-                    </span>
+              <div key={ord.id} className="order-card-modern">
+                {/* Card Top Header */}
+                <div className="order-card-header">
+                  <div className="company-info-block">
+                    <div className="company-title-row">
+                      <i className="fa-solid fa-building company-icon"></i>
+                      <h3 className="company-name">{ord.companyName || 'Wholesale Buyer'}</h3>
+                    </div>
+                    <div className="contact-meta-row">
+                      <span className="contact-item">
+                        <i className="fa-solid fa-user"></i> {ord.contactPerson || 'N/A'}
+                      </span>
+                      <span className="contact-item">
+                        <i className="fa-solid fa-phone"></i> {ord.phone}
+                      </span>
+                      {ord.gstNumber && ord.gstNumber !== 'N/A' && (
+                        <span className="gst-badge">GST: {ord.gstNumber}</span>
+                      )}
+                    </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {/* Status Dropdown Badge */}
+                  <div className="order-status-badge-wrapper">
                     <select
                       value={ord.status || 'PENDING'}
                       onChange={(e) => handleUpdateStatus(ord.id, e.target.value)}
-                      style={{
-                        padding: '0.3rem 0.6rem',
-                        borderRadius: '6px',
-                        fontWeight: 600,
-                        fontSize: '0.8rem',
-                        border: '1px solid #cbd5e1',
-                        backgroundColor: ord.status === 'CONFIRMED' ? '#dcfce7' : ord.status === 'SHIPPED' ? '#dbeafe' : ord.status === 'CANCELLED' ? '#fee2e2' : '#fef3c7',
-                        color: ord.status === 'CONFIRMED' ? '#166534' : ord.status === 'SHIPPED' ? '#1e40af' : ord.status === 'CANCELLED' ? '#991b1b' : '#92400e'
-                      }}
+                      className={`status-dropdown-badge status-${(ord.status || 'PENDING').toLowerCase()}`}
+                      title="Change order status"
                     >
                       <option value="PENDING">PENDING</option>
                       <option value="CONFIRMED">CONFIRMED</option>
                       <option value="SHIPPED">SHIPPED</option>
                       <option value="CANCELLED">CANCELLED</option>
                     </select>
-
-                    {cleanPhone && (
-                      <a
-                        href={`https://wa.me/91${cleanPhone}?text=${encodeURIComponent(`Hello ${ord.contactPerson || 'Customer'}, regarding your wholesale order from Govindasamy & Co...`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn"
-                        style={{ background: '#25d366', color: '#ffffff', padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
-                      >
-                        <i className="fa-brands fa-whatsapp"></i> WhatsApp
-                      </a>
-                    )}
                   </div>
                 </div>
 
-                <div style={{ fontSize: '0.85rem', color: '#475569', marginBottom: '0.75rem' }}>
-                  <strong>📍 Delivery Address:</strong> {ord.deliveryAddress || ord.address || 'N/A'}
-                </div>
+                {/* Delivery Address */}
+                {ord.deliveryAddress || ord.address ? (
+                  <div className="order-address-box">
+                    <i className="fa-solid fa-location-dot address-icon"></i>
+                    <span>{ord.deliveryAddress || ord.address}</span>
+                  </div>
+                ) : null}
 
-                {Array.isArray(ord.items) && ord.items.length > 0 && (() => {
-                  const itemsSubtotal = ord.itemsSubtotal !== undefined
-                    ? ord.itemsSubtotal
-                    : ord.items.reduce((s, item) => s + ((item.qty || 1) * (item.unitRate || item.baseRate || 0)), 0);
-                  const baleRate = ord.masterBaleRate !== undefined ? ord.masterBaleRate : 100;
-                  const baleTotal = ord.masterBaleTotal !== undefined ? ord.masterBaleTotal : ((ord.estBales || 1) * baleRate);
-                  const grandTotal = ord.grandTotal !== undefined ? ord.grandTotal : (itemsSubtotal + baleTotal);
+                {/* Items List Breakdown */}
+                {Array.isArray(ord.items) && ord.items.length > 0 && (
+                  <div className="order-items-box">
+                    <div className="items-header-row">
+                      <span className="items-count-label">
+                        <i className="fa-solid fa-boxes-stacked"></i> Ordered Mats ({ord.items.length})
+                      </span>
+                      <span className="items-subtotal-val">
+                        Subtotal: <strong>Rs. {itemsSubtotal.toLocaleString('en-IN')}</strong>
+                      </span>
+                    </div>
 
-                  return (
-                    <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.75rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
-                          Ordered Items ({ord.items.length})
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                          Items Subtotal: <strong style={{ color: '#0f172a' }}>Rs. {itemsSubtotal.toLocaleString('en-IN')}</strong>
-                        </span>
-                      </div>
+                    <div className="items-list-container">
                       {ord.items.map((item, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '0.2rem 0', borderBottom: idx < ord.items.length - 1 ? '1px solid #e2e8f0' : 'none' }}>
-                          <span>• {item.title || item.name} ({item.qty} {item.unit || 'Bundle(s)'})</span>
-                          <span style={{ fontWeight: 600, color: '#1e293b' }}>Rs. {((item.qty || 1) * (item.unitRate || item.baseRate || 0)).toLocaleString('en-IN')}</span>
+                        <div key={idx} className="item-row">
+                          <span className="item-title">
+                            {item.title || item.name}
+                            <span className="item-qty-tag">
+                              ({item.qty} {item.unit || 'Bundle(s)'})
+                            </span>
+                          </span>
+                          <span className="item-price">
+                            Rs. {((item.qty || 1) * (item.unitRate || item.baseRate || 0)).toLocaleString('en-IN')}
+                          </span>
                         </div>
                       ))}
+                    </div>
 
-                      {/* Master Bale Cost & Grand Total Row in Admin Order Card */}
-                      <div style={{ marginTop: '0.6rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#1e40af', background: '#eff6ff', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid #bfdbfe', fontWeight: 600 }}>
-                          📦 Bale Charges: {ord.estBales || 1} Bales @ ₹{baleRate}/bale = <strong>Rs. {baleTotal.toLocaleString('en-IN')}</strong>
+                    {/* Master Bale Charges Row with Global Rate + Override */}
+                    <div className="order-bale-charges-row">
+                      <div className="bale-charge-calc-group">
+                        <span className="bale-charge-pill">
+                          📦 Bale Charges: {estBales} Bales @ ₹{baleRate}/bale = <strong>Rs. {baleTotal.toLocaleString('en-IN')}</strong>
                         </span>
-                        <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#031b4e' }}>
-                          Grand Total: <strong style={{ color: '#0284c7', fontSize: '1.05rem' }}>Rs. {grandTotal.toLocaleString('en-IN')}</strong>
-                        </span>
+
+                        {editingOrderRate[ord.id] !== undefined ? (
+                          <div className="order-rate-edit-group">
+                            <input
+                              type="number"
+                              min="0"
+                              value={editingOrderRate[ord.id]}
+                              onChange={(e) => setEditingOrderRate(prev => ({ ...prev, [ord.id]: e.target.value }))}
+                              placeholder="Rate"
+                              className="input-order-rate"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateOrderBaleRate(ord, editingOrderRate[ord.id])}
+                              className="btn-save-order-rate"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingOrderRate(prev => { const next = { ...prev }; delete next[ord.id]; return next; })}
+                              className="btn-cancel-order-rate"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setEditingOrderRate(prev => ({ ...prev, [ord.id]: String(baleRate) }))}
+                            className="btn-override-rate"
+                            title="Override Master Bale Rate for this specific order"
+                          >
+                            <i className="fa-solid fa-pen"></i> Override
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="order-grand-total">
+                        <span className="grand-label">Grand Total:</span>
+                        <span className="grand-amount">Rs. {grandTotal.toLocaleString('en-IN')}</span>
                       </div>
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-                    Est. Bales: <strong>{ord.estBales || 1}</strong> • Total Units: <strong>{ord.totalUnits || 0}</strong>
+                {/* Card Footer Actions */}
+                <div className="order-card-footer">
+                  <div className="order-meta-info">
+                    <span>Est. Bales: <strong>{ord.estBales || 1}</strong></span>
+                    <span>Total Units: <strong>{ord.totalUnits || 0}</strong></span>
+                    <span className="order-date-tag">
+                      <i className="fa-regular fa-clock"></i> {dateStr}
+                    </span>
+                  </div>
+
+                  <div className="order-action-buttons">
+                    {cleanPhone && (
+                      <a
+                        href={`https://wa.me/91${cleanPhone}?text=${encodeURIComponent(`Hello ${ord.contactPerson || 'Customer'}, regarding your wholesale order (${ord.companyName || ''}) with Govindasamy & Co...`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-order-action btn-whatsapp"
+                        title="Chat with customer on WhatsApp"
+                      >
+                        <i className="fa-brands fa-whatsapp"></i>
+                        <span>WhatsApp</span>
+                      </a>
+                    )}
+
+                    {cleanPhone && (
+                      <a
+                        href={`tel:${cleanPhone}`}
+                        className="btn-order-action btn-call"
+                        title="Call Customer"
+                      >
+                        <i className="fa-solid fa-phone"></i>
+                      </a>
+                    )}
+
                     {ord.balesPacked && (
                       <button
+                        type="button"
                         onClick={() => toggleBaleDetail(ord.id)}
-                        style={{ marginLeft: '0.25rem', background: expandedBales[ord.id] !== undefined ? '#dbeafe' : '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.15rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer', color: '#1e40af', fontWeight: 600 }}
+                        className={`btn-order-action btn-bale-plan ${expandedBales[ord.id] !== undefined ? 'active' : ''}`}
+                        title="View volumetric packing allocation"
                       >
-                        <i className={`fa-solid ${expandedBales[ord.id] !== undefined ? 'fa-chevron-up' : 'fa-layer-group'}`} style={{ marginRight: '0.25rem' }}></i>
-                        {expandedBales[ord.id] !== undefined ? 'Hide' : 'Bale Plan'}
+                        <i className={`fa-solid ${expandedBales[ord.id] !== undefined ? 'fa-chevron-up' : 'fa-layer-group'}`}></i>
+                        <span>{expandedBales[ord.id] !== undefined ? 'Hide' : 'Bale Plan'}</span>
                       </button>
                     )}
+
                     <button
+                      type="button"
                       onClick={() => printBaleSlips(ord)}
-                      style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.15rem 0.55rem', fontSize: '0.75rem', cursor: 'pointer', color: '#0f172a', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                      className="btn-order-action btn-print-labels"
                       title="Print Master Bale Dispatch Stickers for Gunny Bags"
                     >
-                      <i className="fa-solid fa-print" style={{ color: '#2563eb' }}></i> Print Bale Labels
+                      <i className="fa-solid fa-print"></i>
+                      <span>Print Labels</span>
                     </button>
-                  </span>
-                  <span>Received: {dateStr}</span>
+                  </div>
                 </div>
 
                 {/* Expandable Bale Allocation Detail */}
                 {expandedBales[ord.id] && Array.isArray(expandedBales[ord.id]) && expandedBales[ord.id].length > 0 && (
-                  <div style={{ marginTop: '0.75rem', background: '#f0f9ff', borderRadius: '8px', padding: '0.75rem', border: '1px solid #bae6fd' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        <i className="fa-solid fa-boxes-stacked" style={{ marginRight: '0.3rem' }}></i>
-                        Bale Allocation Plan ({expandedBales[ord.id].length} bales)
+                  <div className="bale-plan-accordion">
+                    <div className="bale-plan-header">
+                      <div className="plan-title">
+                        <i className="fa-solid fa-boxes-stacked"></i>
+                        <span>Bale Allocation Plan ({expandedBales[ord.id].length} Master Bales)</span>
                       </div>
                       <button
+                        type="button"
                         onClick={() => printBaleSlips({ ...ord, bales: expandedBales[ord.id] })}
-                        style={{ background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: '4px', padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                        className="btn-print-all-bales"
                       >
                         <i className="fa-solid fa-print"></i> Print {expandedBales[ord.id].length} Labels
                       </button>
                     </div>
-                    {expandedBales[ord.id].map((bale) => (
-                      <div key={bale.baleId} style={{ marginBottom: '0.5rem', paddingBottom: '0.5rem', borderBottom: '1px dashed #bae6fd' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                          <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0c4a6e' }}>
-                            <i className="fa-solid fa-cube" style={{ marginRight: '0.2rem' }}></i>{bale.baleId}
-                          </span>
-                          <div style={{ flex: 1, height: '6px', background: '#e0f2fe', borderRadius: '999px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${Math.min(100, parseFloat(bale.capacityPercent))}%`, background: parseFloat(bale.capacityPercent) >= 90 ? '#16a34a' : parseFloat(bale.capacityPercent) >= 60 ? '#d97706' : '#2563eb', borderRadius: '999px', transition: 'width 0.5s ease' }}></div>
-                          </div>
-                          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0369a1', whiteSpace: 'nowrap' }}>{bale.capacityPercent}% full</span>
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                          {bale.items.map((item) => (
-                            <span key={item.itemId} style={{ fontSize: '0.72rem', background: '#ffffff', border: '1px solid #bae6fd', borderRadius: '4px', padding: '0.1rem 0.4rem', color: '#0c4a6e' }}>
-                              {item.title}: {item.bundleQty}B · {item.capacityPercent}%
+
+                    <div className="bale-items-grid">
+                      {expandedBales[ord.id].map((bale) => (
+                        <div key={bale.baleId} className="bale-unit-card">
+                          <div className="bale-unit-top">
+                            <span className="bale-unit-id">
+                              <i className="fa-solid fa-cube"></i> {bale.baleId}
                             </span>
-                          ))}
+                            <div className="bale-progress-bar">
+                              <div
+                                className="progress-fill"
+                                style={{
+                                  width: `${Math.min(100, parseFloat(bale.capacityPercent))}%`,
+                                  backgroundColor: parseFloat(bale.capacityPercent) >= 90 ? '#16a34a' : parseFloat(bale.capacityPercent) >= 60 ? '#d97706' : '#2563eb'
+                                }}
+                              ></div>
+                            </div>
+                            <span className="bale-cap-text">{bale.capacityPercent}% full</span>
+                          </div>
+
+                          <div className="bale-items-chips">
+                            {bale.items.map((item) => (
+                              <span key={item.itemId} className="bale-item-chip">
+                                {item.title}: {item.bundleQty}B · {item.capacityPercent}%
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -312,6 +517,6 @@ export default function OrdersManager() {
           })}
         </div>
       )}
-    </section>
+    </div>
   );
 }
