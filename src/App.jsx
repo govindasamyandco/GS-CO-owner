@@ -4,6 +4,7 @@ import Login from './components/Login';
 import Header from './components/Header';
 import ProductForm from './components/ProductForm';
 import ProductGrid from './components/ProductGrid';
+import MasterBaleConfigCard from './components/MasterBaleConfigCard';
 import OrdersManager from './components/OrdersManager';
 import AuditLogs from './components/AuditLogs';
 import ModernToastContainer from './components/ModernToastContainer';
@@ -167,6 +168,7 @@ export default function App() {
       <ModernToastContainer />
       <Header totalProducts={products.length} onLogout={handleLogout} />
       <main className="main-layout">
+        <MasterBaleConfigCard />
         <ProductForm />
         <ProductGrid products={products} />
         <OrdersManager />
