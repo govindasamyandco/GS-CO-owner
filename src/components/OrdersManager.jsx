@@ -208,19 +208,43 @@ export default function OrdersManager() {
                   <strong>📍 Delivery Address:</strong> {ord.deliveryAddress || ord.address || 'N/A'}
                 </div>
 
-                {Array.isArray(ord.items) && ord.items.length > 0 && (
-                  <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.75rem' }}>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
-                      Ordered Items ({ord.items.length})
-                    </div>
-                    {ord.items.map((item, idx) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '0.2rem 0', borderBottom: idx < ord.items.length - 1 ? '1px solid #e2e8f0' : 'none' }}>
-                        <span>• {item.title || item.name} ({item.qty} {item.unit || 'Bundle(s)'})</span>
-                        <span style={{ fontWeight: 600, color: '#1e293b' }}>Rs. {((item.qty || 1) * (item.unitRate || item.baseRate || 0)).toLocaleString('en-IN')}</span>
+                {Array.isArray(ord.items) && ord.items.length > 0 && (() => {
+                  const itemsSubtotal = ord.itemsSubtotal !== undefined
+                    ? ord.itemsSubtotal
+                    : ord.items.reduce((s, item) => s + ((item.qty || 1) * (item.unitRate || item.baseRate || 0)), 0);
+                  const baleRate = ord.masterBaleRate !== undefined ? ord.masterBaleRate : 100;
+                  const baleTotal = ord.masterBaleTotal !== undefined ? ord.masterBaleTotal : ((ord.estBales || 1) * baleRate);
+                  const grandTotal = ord.grandTotal !== undefined ? ord.grandTotal : (itemsSubtotal + baleTotal);
+
+                  return (
+                    <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.75rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                          Ordered Items ({ord.items.length})
+                        </span>
+                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                          Items Subtotal: <strong style={{ color: '#0f172a' }}>Rs. {itemsSubtotal.toLocaleString('en-IN')}</strong>
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      {ord.items.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '0.2rem 0', borderBottom: idx < ord.items.length - 1 ? '1px solid #e2e8f0' : 'none' }}>
+                          <span>• {item.title || item.name} ({item.qty} {item.unit || 'Bundle(s)'})</span>
+                          <span style={{ fontWeight: 600, color: '#1e293b' }}>Rs. {((item.qty || 1) * (item.unitRate || item.baseRate || 0)).toLocaleString('en-IN')}</span>
+                        </div>
+                      ))}
+
+                      {/* Master Bale Cost & Grand Total Row in Admin Order Card */}
+                      <div style={{ marginTop: '0.6rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: '#1e40af', background: '#eff6ff', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid #bfdbfe', fontWeight: 600 }}>
+                          📦 Bale Charges: {ord.estBales || 1} Bales @ ₹{baleRate}/bale = <strong>Rs. {baleTotal.toLocaleString('en-IN')}</strong>
+                        </span>
+                        <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#031b4e' }}>
+                          Grand Total: <strong style={{ color: '#0284c7', fontSize: '1.05rem' }}>Rs. {grandTotal.toLocaleString('en-IN')}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
