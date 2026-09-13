@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db, collection, onSnapshot, doc, updateDoc, query, orderBy, limit, getDoc } from '../firebase';
 import { toast } from '../utils/toast';
 import { printBaleSlips } from '../utils/baleSlipGenerator';
+import LottieAnimation from './LottieAnimation';
 
 export default function OrdersManager() {
   const [orders, setOrders] = useState([]);
@@ -140,14 +141,14 @@ export default function OrdersManager() {
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-          <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}></i>
-          <p>Syncing orders from Cloud Firestore...</p>
+          <LottieAnimation animationPath="/assets/loading.json" width={110} height={110} />
+          <p style={{ marginTop: '0.5rem', fontWeight: 600 }}>Syncing orders from Cloud Firestore...</p>
         </div>
       ) : filteredOrders.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '2.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
-          <i className="fa-solid fa-inbox" style={{ fontSize: '2rem', color: '#94a3b8', marginBottom: '0.5rem' }}></i>
-          <h3 style={{ fontSize: '1rem', color: '#475569' }}>No Customer Orders Found</h3>
-          <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Customer inquiries submitted via the User app will appear here automatically.</p>
+          <LottieAnimation animationPath="/assets/Error 404.json" width={180} height={160} />
+          <h3 style={{ fontSize: '1.05rem', color: '#334155', fontWeight: 700, marginTop: '0.5rem' }}>No Customer Orders Found</h3>
+          <p style={{ fontSize: '0.85rem', color: '#64748b' }}>Customer inquiries submitted via the User app will appear here automatically.</p>
         </div>
       ) : (
         <div className="orders-grid" style={{ display: 'grid', gap: '1rem' }}>

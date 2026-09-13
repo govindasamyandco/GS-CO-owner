@@ -7,6 +7,7 @@ import ProductGrid from './components/ProductGrid';
 import OrdersManager from './components/OrdersManager';
 import AuditLogs from './components/AuditLogs';
 import ModernToastContainer from './components/ModernToastContainer';
+import LottieAnimation from './components/LottieAnimation';
 import { toast } from './utils/toast';
 import './styles.css';
 
@@ -141,7 +142,7 @@ export default function App() {
   if (authChecking) {
     return (
       <div className="auth-loading-screen">
-        <div className="auth-spinner"></div>
+        <LottieAnimation animationPath="/assets/loading.json" width={130} height={130} />
         <p>Verifying secure admin authorization...</p>
       </div>
     );

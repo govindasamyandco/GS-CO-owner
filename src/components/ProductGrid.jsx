@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db, storage, collection, onSnapshot, doc, deleteDoc, updateDoc, ref, uploadBytes, getDownloadURL, functions, httpsCallable } from '../firebase';
 import { toast } from '../utils/toast';
+import LottieAnimation from './LottieAnimation';
 
 export default function ProductGrid({ products }) {
   const [filterCategory, setFilterCategory] = useState('ALL');
@@ -349,7 +350,7 @@ export default function ProductGrid({ products }) {
       <div className="product-cards-grid">
         {sortedProducts.length === 0 ? (
           <div className="no-products-box">
-            <i className="fa-solid fa-boxes-stacked"></i>
+            <LottieAnimation animationPath="/assets/Error 404.json" width={200} height={180} />
             <h3>No Mat Products Found</h3>
             <p>Upload a product using the form above or on the left.</p>
           </div>
