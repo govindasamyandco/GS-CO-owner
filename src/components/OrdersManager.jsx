@@ -10,7 +10,6 @@ export default function OrdersManager() {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedBales, setExpandedBales] = useState({}); // { [orderId]: balesArray | null }
-  const [editingOrderRate, setEditingOrderRate] = useState({}); // { [orderId]: string }
 
   // Subscribe to real-time wholesale orders from Firestore (bounded to latest 50 orders)
   useEffect(() => {
@@ -49,37 +48,6 @@ export default function OrdersManager() {
     } catch (err) {
       console.error('Failed to update order status:', err);
       toast.error('Failed to update order status: ' + err.message, 'Update Error');
-    }
-  };
-
-  const handleUpdateOrderBaleRate = async (ord, newRateStr) => {
-    const newRate = parseFloat(newRateStr);
-    if (isNaN(newRate) || newRate < 0) {
-      toast.error('Please enter a valid non-negative rate (e.g. 100).', 'Invalid Rate');
-      return;
-    }
-    const itemsSubtotal = ord.itemsSubtotal !== undefined
-      ? ord.itemsSubtotal
-      : (ord.items || []).reduce((s, item) => s + ((item.qty || 1) * (item.unitRate || item.baseRate || 0)), 0);
-    const estBales = ord.estBales || 1;
-    const masterBaleTotal = estBales * newRate;
-    const grandTotal = itemsSubtotal + masterBaleTotal;
-
-    try {
-      await updateDoc(doc(db, 'orders', ord.id), {
-        masterBaleRate: newRate,
-        masterBaleTotal,
-        grandTotal
-      });
-      setEditingOrderRate((prev) => {
-        const next = { ...prev };
-        delete next[ord.id];
-        return next;
-      });
-      toast.success(`Updated Bale Rate for ${ord.companyName || 'order'} to ₹${newRate}/bale!`, 'Order Rate Updated');
-    } catch (err) {
-      console.error('Failed to update order bale rate:', err);
-      toast.error('Failed to update rate: ' + err.message, 'Update Failed');
     }
   };
 
@@ -268,49 +236,9 @@ export default function OrdersManager() {
 
                       {/* Master Bale Cost & Grand Total Row in Admin Order Card */}
                       <div style={{ marginTop: '0.6rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.8rem', color: '#1e40af', background: '#eff6ff', padding: '0.25rem 0.55rem', borderRadius: '6px', border: '1px solid #bfdbfe', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <i className="fa-solid fa-cube"></i> Bale Charges: {ord.estBales || 1} Bales @ ₹{baleRate}/bale = <strong>Rs. {baleTotal.toLocaleString('en-IN')}</strong>
-                          </span>
-
-                          {editingOrderRate[ord.id] !== undefined ? (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                              <input
-                                type="number"
-                                min="0"
-                                value={editingOrderRate[ord.id]}
-                                onChange={(e) => setEditingOrderRate(prev => ({ ...prev, [ord.id]: e.target.value }))}
-                                placeholder="Rate"
-                                style={{ width: '70px', padding: '0.2rem 0.4rem', fontSize: '0.78rem', borderRadius: '4px', border: '1px solid #0284c7', fontWeight: 700 }}
-                                autoFocus
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateOrderBaleRate(ord, editingOrderRate[ord.id])}
-                                style={{ background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: '4px', padding: '0.2rem 0.5rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingOrderRate(prev => { const next = { ...prev }; delete next[ord.id]; return next; })}
-                                style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.2rem 0.4rem', fontSize: '0.72rem', cursor: 'pointer' }}
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setEditingOrderRate(prev => ({ ...prev, [ord.id]: String(baleRate) }))}
-                              style={{ background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', padding: '0.15rem 0.45rem', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
-                              title="Edit Master Bale Rate for this specific order"
-                            >
-                              <i className="fa-solid fa-pen" style={{ fontSize: '0.65rem' }}></i> Edit Rate
-                            </button>
-                          )}
-                        </div>
-
+                        <span style={{ fontSize: '0.8rem', color: '#1e40af', background: '#eff6ff', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid #bfdbfe', fontWeight: 600 }}>
+                          📦 Bale Charges: {ord.estBales || 1} Bales @ ₹{baleRate}/bale = <strong>Rs. {baleTotal.toLocaleString('en-IN')}</strong>
+                        </span>
                         <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#031b4e' }}>
                           Grand Total: <strong style={{ color: '#0284c7', fontSize: '1.05rem' }}>Rs. {grandTotal.toLocaleString('en-IN')}</strong>
                         </span>
