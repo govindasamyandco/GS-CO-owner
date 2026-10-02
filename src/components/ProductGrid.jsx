@@ -492,19 +492,6 @@ export default function ProductGrid({ products }) {
                       type="button"
                       className="btn-select-pill"
                       style={{
-                        background: p.hidePrice ? '#dc2626' : '#0284c7',
-                        padding: '0.5rem 0.85rem',
-                        fontSize: '0.82rem'
-                      }}
-                      onClick={() => handleToggleHidePrice(p)}
-                      title={p.hidePrice ? 'Click to SHOW numerical price on customer portal' : 'Click to HIDE price on customer portal'}
-                    >
-                      <i className={`fa-solid ${p.hidePrice ? 'fa-eye-slash' : 'fa-eye'}`}></i> {p.hidePrice ? 'Price Hidden' : 'Hide Price'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-select-pill"
-                      style={{
                         background: isDisabled ? '#16a34a' : '#d97706',
                         padding: '0.5rem 0.85rem',
                         fontSize: '0.82rem'

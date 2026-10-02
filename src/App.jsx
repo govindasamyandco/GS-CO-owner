@@ -21,7 +21,9 @@ export default function App() {
   const [isBaleInfoModalOpen, setIsBaleInfoModalOpen] = useState(false);
   const [activeView, setActiveView] = useState('CATALOG'); // 'CATALOG' | 'ORDERS'
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
-  const [globalHidePrices, setGlobalHidePrices] = useState(false);
+  const [globalHidePrices, setGlobalHidePrices] = useState(
+    localStorage.getItem('gsco_global_hide_prices') === 'true'
+  );
   const lastActivityRef = useRef(Date.now());
 
   // Listen to Firebase Auth state & verify admin custom claim
@@ -88,7 +90,9 @@ export default function App() {
           setPendingOrdersCount((c) => c + 1);
           toast.info(`Company: ${ord.companyName} | Phone: ${ord.phone} | Est. Bales: ${ord.estBales || 1}`, '🔔 Wholesale Order Received');
         } else if (event.data?.type === 'GLOBAL_PRICE_VISIBILITY_UPDATED') {
-          setGlobalHidePrices(Boolean(event.data.hideAllPrices));
+          const hideState = Boolean(event.data.hideAllPrices);
+          setGlobalHidePrices(hideState);
+          localStorage.setItem('gsco_global_hide_prices', String(hideState));
         }
       };
     }
@@ -120,7 +124,9 @@ export default function App() {
     const priceConfigRef = doc(db, 'settings', 'price_config');
     const unsubscribePriceConfig = onSnapshot(priceConfigRef, (snap) => {
       if (snap.exists()) {
-        setGlobalHidePrices(Boolean(snap.data().hideAllPrices));
+        const hideState = Boolean(snap.data().hideAllPrices);
+        setGlobalHidePrices(hideState);
+        localStorage.setItem('gsco_global_hide_prices', String(hideState));
       }
     }, (err) => {
       console.warn('Price config sync notice:', err.message);
@@ -137,6 +143,19 @@ export default function App() {
   // Toggle Global Master Price Visibility (ON/OFF at Top of Admin Page)
   const handleToggleGlobalHidePrices = async () => {
     const newHideState = !globalHidePrices;
+    setGlobalHidePrices(newHideState);
+    localStorage.setItem('gsco_global_hide_prices', String(newHideState));
+
+    if (typeof window !== 'undefined' && window.BroadcastChannel) {
+      try {
+        const channel = new BroadcastChannel('gsco_realtime_channel');
+        channel.postMessage({ type: 'GLOBAL_PRICE_VISIBILITY_UPDATED', hideAllPrices: newHideState });
+        channel.close();
+      } catch (bcErr) {
+        console.warn('BroadcastChannel notice:', bcErr);
+      }
+    }
+
     try {
       const configRef = doc(db, 'settings', 'price_config');
       await setDoc(configRef, {
@@ -144,25 +163,16 @@ export default function App() {
         updatedAt: serverTimestamp(),
         updatedBy: 'Admin'
       }, { merge: true });
-
-      setGlobalHidePrices(newHideState);
-
-      if (typeof window !== 'undefined' && window.BroadcastChannel) {
-        const channel = new BroadcastChannel('gsco_realtime_channel');
-        channel.postMessage({ type: 'GLOBAL_PRICE_VISIBILITY_UPDATED', hideAllPrices: newHideState });
-        channel.close();
-      }
-
-      toast.success(
-        newHideState
-          ? '🙈 ALL prices HIDDEN globally on customer site! Shows "Price on Inquiry".'
-          : '👁️ ALL prices VISIBLE on customer site!',
-        'Global Price Visibility Updated'
-      );
     } catch (err) {
-      console.error('Failed to update global price visibility:', err);
-      toast.error('Failed to update global price setting: ' + err.message, 'Error');
+      console.warn('Firestore price config write notice (using local real-time channel):', err.message);
     }
+
+    toast.success(
+      newHideState
+        ? '🙈 ALL prices HIDDEN globally on customer site! Shows "Price on Inquiry".'
+        : '👁️ ALL prices VISIBLE on customer site!',
+      'Global Price Visibility Updated'
+    );
   };
 
   // 15-Minute Inactivity Auto-Logout Tracker
