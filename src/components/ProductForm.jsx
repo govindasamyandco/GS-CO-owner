@@ -31,7 +31,6 @@ export default function ProductForm() {
   const [stockStatus, setStockStatus] = useState('IN_STOCK');
   const [seasonNotice, setSeasonNotice] = useState('Price may differ based on the season item or the stock quantity');
   const [description, setDescription] = useState('');
-  const [hidePrice, setHidePrice] = useState(false);
 
   // Multi-Image State (Up to 3 images)
   const [imageFiles, setImageFiles] = useState([null, null, null]);
@@ -47,6 +46,14 @@ export default function ProductForm() {
     } else {
       setBundlePieces(1);
       setMinOrderNotice('Available for individual piece purchase');
+    }
+  };
+
+  const handlePiecesChange = (val) => {
+    const num = parseInt(val, 10) || 0;
+    setBundlePieces(num);
+    if (unitType === 'per Bundle' || unitType === 'per Dozen') {
+      setMinOrderNotice(`Purchased per full ${unitType.replace('per ', '')} (${num} Pcs only)`);
     }
   };
 
@@ -193,8 +200,7 @@ export default function ProductForm() {
       seasonNotice,
       description: description.trim(),
       imageUrl: primaryImageUrl, // Backward compatibility for existing codebase
-      images: finalImages,         // Multi-image array support (Max 3)
-      hidePrice: Boolean(hidePrice) // Real-time Price visibility toggle
+      images: finalImages         // Multi-image array support (Max 3)
     };
 
     const firestorePayload = {
@@ -242,7 +248,6 @@ export default function ProductForm() {
     setBundlePieces(10);
     setUnitType('per Bundle');
     setDescription('');
-    setHidePrice(false);
     setImageFiles([null, null, null]);
     setImagePreviews([null, null, null]);
   };
@@ -254,11 +259,11 @@ export default function ProductForm() {
           <h2>
             <i className="fa-solid fa-circle-plus"></i> Add Mat to Catalog
           </h2>
-          <p className="section-desc">Add mat details, upload up to 3 photos, select rate, and control price visibility.</p>
+          <p className="section-desc">Add mat details, upload up to 3 photos, select rate, and configure factory packaging.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="product-form">
-          {/* Multi-Photo Upload Zone (Up to 3 Images) */}
+          {/* SECTION 1: Multi-Photo Upload Zone (Up to 3 Images) */}
           <div className="form-group">
             <label><i className="fa-solid fa-images"></i> Product Image Upload (Up to 3 Photos)</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem', marginTop: '0.4rem' }}>
@@ -296,7 +301,7 @@ export default function ProductForm() {
             </div>
           </div>
 
-          {/* Product Name */}
+          {/* SECTION 2: Product Name & Category */}
           <div className="form-group">
             <label><i className="fa-solid fa-tag"></i> Mat Name / Code</label>
             <input
@@ -309,7 +314,6 @@ export default function ProductForm() {
             />
           </div>
 
-          {/* Category Selector */}
           <div className="form-group">
             <label><i className="fa-solid fa-layer-group"></i> Choose Category</label>
             <select
@@ -349,7 +353,7 @@ export default function ProductForm() {
             )}
           </div>
 
-          {/* Rate & Selling Unit */}
+          {/* SECTION 3: Wholesale Rate & Selling Unit */}
           <div className="form-row">
             <div className="form-group col-6">
               <label>
@@ -364,7 +368,15 @@ export default function ProductForm() {
                 min="1"
                 required
               />
+              <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
+                {unitType === 'per Piece'
+                  ? 'Price for 1 single piece'
+                  : baseRate && bundlePieces
+                    ? `Price for 1 full bundle (~ ₹${Math.round(parseFloat(baseRate) / bundlePieces)} / pc)`
+                    : `Price for 1 full ${unitType.replace('per ', '')}`}
+              </small>
             </div>
+
             <div className="form-group col-6">
               <label><i className="fa-solid fa-box-archive"></i> Selling Unit</label>
               <select
@@ -379,28 +391,69 @@ export default function ProductForm() {
             </div>
           </div>
 
-          {/* HIDE PRICE TOGGLE SWITCH CONTROL */}
-          <div className="form-group" style={{ background: hidePrice ? '#fef2f2' : '#f8fafc', padding: '0.75rem', borderRadius: '8px', border: hidePrice ? '1px solid #fca5a5' : '1px solid #e2e8f0', margin: '0.8rem 0' }}>
-            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0, color: hidePrice ? '#991b1b' : 'var(--brand-navy)' }}>
-              <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>
-                <i className={`fa-solid ${hidePrice ? 'fa-eye-slash' : 'fa-eye'}`} style={{ marginRight: '0.4rem', color: hidePrice ? '#dc2626' : 'var(--brand-emerald)' }}></i>
-                Hide Price from Customers
-              </span>
+          {/* SECTION 4: Factory Packaging & Master Bale Billing Engine */}
+          <div className="form-row">
+            <div className="form-group col-6">
+              <label><i className="fa-solid fa-boxes-stacked"></i> Pieces / Bundle</label>
               <input
-                type="checkbox"
-                checked={hidePrice}
-                onChange={(e) => setHidePrice(e.target.checked)}
-                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#dc2626' }}
+                type="number"
+                className="form-control"
+                value={bundlePieces}
+                onChange={(e) => handlePiecesChange(e.target.value)}
+                min="1"
+                disabled={unitType === 'per Piece'}
               />
-            </label>
-            <small style={{ fontSize: '0.74rem', color: hidePrice ? '#b91c1c' : '#64748b', display: 'block', marginTop: '0.3rem' }}>
-              {hidePrice
-                ? '⚠️ Price will be HIDDEN on customer site (shows "Price on Inquiry").'
-                : '✅ Price is VISIBLE to all customers.'}
-            </small>
+            </div>
+
+            <div className="form-group col-6">
+              <label><i className="fa-solid fa-cube"></i> Bundles / Master Bale</label>
+              <input
+                type="number"
+                className="form-control"
+                value={bundlesPerPack}
+                onChange={(e) => setBundlesPerPack(e.target.value)}
+                min="1"
+                placeholder="e.g. 8"
+                required
+              />
+            </div>
           </div>
 
-          {/* Description */}
+          <div className="form-group">
+            <label><i className="fa-solid fa-warehouse"></i> Stock Availability</label>
+            <select
+              className="form-control"
+              value={stockStatus}
+              onChange={(e) => setStockStatus(e.target.value)}
+            >
+              <option value="IN_STOCK">In Stock (Available for Order)</option>
+              <option value="OUT_OF_STOCK">Out of Stock (Temporarily Unavailable)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label><i className="fa-solid fa-triangle-exclamation"></i> Minimum Order Notice</label>
+            <input
+              type="text"
+              className="form-control"
+              value={minOrderNotice}
+              onChange={(e) => setMinOrderNotice(e.target.value)}
+              placeholder="e.g. Purchased per full Bundle (10 Pcs only)"
+            />
+          </div>
+
+          <div className="form-group">
+            <label><i className="fa-solid fa-tags"></i> Seasonal Pricing Disclaimer</label>
+            <input
+              type="text"
+              className="form-control"
+              value={seasonNotice}
+              onChange={(e) => setSeasonNotice(e.target.value)}
+              placeholder="e.g. Price may differ based on the season item or the stock quantity"
+            />
+          </div>
+
+          {/* Description / Specifications */}
           <div className="form-group">
             <label><i className="fa-solid fa-align-left"></i> Specifications / Description</label>
             <textarea
