@@ -27,7 +27,7 @@ export default function ProductGrid({ products }) {
     category: 'Panipat Mat',
     baseRate: '',
     unit: 'per Bundle',
-    bundlePieces: 10,
+    bundlePieces: 50,
     bundlesPerPack: 8,
     stockStatus: 'IN_STOCK',
     stockQty: 100,
@@ -50,7 +50,7 @@ export default function ProductGrid({ products }) {
       category: prod.category || 'Panipat Mat',
       baseRate: prod.baseRate || '',
       unit: prod.unit || 'per Bundle',
-      bundlePieces: prod.bundlePieces || 10,
+      bundlePieces: prod.bundlePieces || 50,
       bundlesPerPack: prod.bundlesPerPack || (prod.unit === 'per Piece' ? 120 : 8),
       stockStatus: isCurrentlyInStock ? 'IN_STOCK' : 'OUT_OF_STOCK',
       stockQty: isCurrentlyInStock ? 100 : 0,
@@ -757,10 +757,10 @@ export default function ProductGrid({ products }) {
                       setEditForm((prev) => ({
                         ...prev,
                         unit: newUnit,
-                        bundlePieces: newUnit === 'per Piece' ? 1 : (prev.bundlePieces || 10),
+                        bundlePieces: newUnit === 'per Piece' ? 1 : (prev.bundlePieces || 50),
                         minOrderNotice: newUnit === 'per Piece'
                           ? 'Available for individual piece purchase'
-                          : `Purchased per full ${newUnit.replace('per ', '')} (${prev.bundlePieces || 10} Pcs only)`
+                          : `Purchased per full ${newUnit.replace('per ', '')} (${prev.bundlePieces || 50} Pcs only)`
                       }));
                     }}
                   >
@@ -870,7 +870,7 @@ export default function ProductGrid({ products }) {
                   className="form-control"
                   value={editForm.minOrderNotice}
                   onChange={(e) => setEditForm({ ...editForm, minOrderNotice: e.target.value })}
-                  placeholder="Purchased per full Bundle (10 Pcs only)"
+                  placeholder="Purchased per full Bundle (50 Pcs only)"
                 />
               </div>
 

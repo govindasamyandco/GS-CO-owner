@@ -25,9 +25,9 @@ export default function ProductForm() {
 
   const [baseRate, setBaseRate] = useState('');
   const [unitType, setUnitType] = useState('per Bundle');
-  const [bundlePieces, setBundlePieces] = useState(10);
+  const [bundlePieces, setBundlePieces] = useState(50);
   const [bundlesPerPack, setBundlesPerPack] = useState(8);
-  const [minOrderNotice, setMinOrderNotice] = useState('Purchased per full Bundle (10 Pcs only)');
+  const [minOrderNotice, setMinOrderNotice] = useState('Purchased per full Bundle (50 Pcs only)');
   const [stockStatus, setStockStatus] = useState('IN_STOCK');
   const [seasonNotice, setSeasonNotice] = useState('Price may differ based on the season item or the stock quantity');
   const [description, setDescription] = useState('');
@@ -40,7 +40,7 @@ export default function ProductForm() {
   const handleUnitChange = (unit) => {
     setUnitType(unit);
     if (unit === 'per Bundle' || unit === 'per Dozen') {
-      const pcs = unit === 'per Dozen' ? 12 : (bundlePieces || 10);
+      const pcs = unit === 'per Dozen' ? 12 : (bundlePieces || 50);
       setBundlePieces(pcs);
       setMinOrderNotice(`Purchased per full ${unit.replace('per ', '')} (${pcs} Pcs only)`);
     } else {
@@ -438,7 +438,7 @@ export default function ProductForm() {
               className="form-control"
               value={minOrderNotice}
               onChange={(e) => setMinOrderNotice(e.target.value)}
-              placeholder="e.g. Purchased per full Bundle (10 Pcs only)"
+              placeholder="e.g. Purchased per full Bundle (50 Pcs only)"
             />
           </div>
 
