@@ -163,16 +163,17 @@ export default function App() {
         updatedAt: serverTimestamp(),
         updatedBy: 'Admin'
       }, { merge: true });
-    } catch (err) {
-      console.warn('Firestore price config write notice (using local real-time channel):', err.message);
-    }
 
-    toast.success(
-      newHideState
-        ? '🙈 ALL prices HIDDEN globally on customer site! Shows "Price on Inquiry".'
-        : '👁️ ALL prices VISIBLE on customer site!',
-      'Global Price Visibility Updated'
-    );
+      toast.success(
+        newHideState
+          ? '🙈 ALL prices HIDDEN globally on customer site! Shows "Price on Inquiry".'
+          : '👁️ ALL prices VISIBLE on customer site!',
+        'Global Price Visibility Sync'
+      );
+    } catch (err) {
+      console.error('Firestore price config write error:', err);
+      toast.error('Failed to sync price visibility to Cloud Firestore: ' + err.message, 'Database Sync Error');
+    }
   };
 
   // 15-Minute Inactivity Auto-Logout Tracker
