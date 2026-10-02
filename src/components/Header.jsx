@@ -6,7 +6,9 @@ export default function Header({
   onOpenBaleInfo,
   activeView = 'CATALOG',
   onNavigateView,
-  pendingOrdersCount = 0
+  pendingOrdersCount = 0,
+  globalHidePrices = false,
+  onToggleGlobalHidePrices
 }) {
   return (
     <header className="top-nav">
@@ -27,6 +29,32 @@ export default function Header({
         </div>
 
         <div className="nav-actions">
+          {/* GLOBAL MASTER PRICE VISIBILITY TOGGLE SWITCH AT TOP */}
+          <button
+            type="button"
+            className="admin-status-pill"
+            onClick={onToggleGlobalHidePrices}
+            style={{
+              background: globalHidePrices ? '#dc2626' : '#0284c7',
+              color: '#ffffff',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 700,
+              padding: '0.45rem 0.85rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              borderRadius: '9999px',
+              fontSize: '0.82rem',
+              boxShadow: globalHidePrices ? '0 0 12px rgba(220, 38, 38, 0.4)' : 'none',
+              transition: 'all 0.25s ease'
+            }}
+            title={globalHidePrices ? 'All customer prices are HIDDEN. Click to SHOW numerical prices.' : 'All customer prices are VISIBLE. Click to HIDE prices globally.'}
+          >
+            <i className={`fa-solid ${globalHidePrices ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+            <span>{globalHidePrices ? 'Prices Hidden (Customer Site)' : 'Hide All Prices'}</span>
+          </button>
+
           {/* Navigation View Switchers */}
           <button
             type="button"

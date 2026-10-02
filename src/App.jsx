@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { db, collection, onSnapshot, auth, onAuthStateChanged, signOut } from './firebase';
+import { db, collection, onSnapshot, doc, setDoc, serverTimestamp, auth, onAuthStateChanged, signOut } from './firebase';
 import Login from './components/Login';
 import Header from './components/Header';
 import ProductForm from './components/ProductForm';
@@ -21,6 +21,7 @@ export default function App() {
   const [isBaleInfoModalOpen, setIsBaleInfoModalOpen] = useState(false);
   const [activeView, setActiveView] = useState('CATALOG'); // 'CATALOG' | 'ORDERS'
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  const [globalHidePrices, setGlobalHidePrices] = useState(false);
   const lastActivityRef = useRef(Date.now());
 
   // Listen to Firebase Auth state & verify admin custom claim
@@ -86,6 +87,8 @@ export default function App() {
           const ord = event.data.order;
           setPendingOrdersCount((c) => c + 1);
           toast.info(`Company: ${ord.companyName} | Phone: ${ord.phone} | Est. Bales: ${ord.estBales || 1}`, '🔔 Wholesale Order Received');
+        } else if (event.data?.type === 'GLOBAL_PRICE_VISIBILITY_UPDATED') {
+          setGlobalHidePrices(Boolean(event.data.hideAllPrices));
         }
       };
     }
@@ -113,12 +116,54 @@ export default function App() {
       console.warn('Orders count sync info:', err.message);
     });
 
+    // Subscribe to Global Price Visibility Config from Firestore settings/price_config
+    const priceConfigRef = doc(db, 'settings', 'price_config');
+    const unsubscribePriceConfig = onSnapshot(priceConfigRef, (snap) => {
+      if (snap.exists()) {
+        setGlobalHidePrices(Boolean(snap.data().hideAllPrices));
+      }
+    }, (err) => {
+      console.warn('Price config sync notice:', err.message);
+    });
+
     return () => {
       unsubscribeProducts();
       unsubscribeOrders();
+      unsubscribePriceConfig();
       if (channel) channel.close();
     };
   }, [isLoggedIn]);
+
+  // Toggle Global Master Price Visibility (ON/OFF at Top of Admin Page)
+  const handleToggleGlobalHidePrices = async () => {
+    const newHideState = !globalHidePrices;
+    try {
+      const configRef = doc(db, 'settings', 'price_config');
+      await setDoc(configRef, {
+        hideAllPrices: newHideState,
+        updatedAt: serverTimestamp(),
+        updatedBy: 'Admin'
+      }, { merge: true });
+
+      setGlobalHidePrices(newHideState);
+
+      if (typeof window !== 'undefined' && window.BroadcastChannel) {
+        const channel = new BroadcastChannel('gsco_realtime_channel');
+        channel.postMessage({ type: 'GLOBAL_PRICE_VISIBILITY_UPDATED', hideAllPrices: newHideState });
+        channel.close();
+      }
+
+      toast.success(
+        newHideState
+          ? '🙈 ALL prices HIDDEN globally on customer site! Shows "Price on Inquiry".'
+          : '👁️ ALL prices VISIBLE on customer site!',
+        'Global Price Visibility Updated'
+      );
+    } catch (err) {
+      console.error('Failed to update global price visibility:', err);
+      toast.error('Failed to update global price setting: ' + err.message, 'Error');
+    }
+  };
 
   // 15-Minute Inactivity Auto-Logout Tracker
   useEffect(() => {
@@ -189,12 +234,14 @@ export default function App() {
         activeView={activeView}
         onNavigateView={(view) => setActiveView(view)}
         pendingOrdersCount={pendingOrdersCount}
+        globalHidePrices={globalHidePrices}
+        onToggleGlobalHidePrices={handleToggleGlobalHidePrices}
       />
 
       {activeView === 'CATALOG' ? (
         <main className="main-layout">
           <ProductForm />
-          <ProductGrid products={products} />
+          <ProductGrid products={products} globalHidePrices={globalHidePrices} onToggleGlobalHidePrices={handleToggleGlobalHidePrices} />
           <AuditLogs />
         </main>
       ) : (
