@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db, storage, collection, addDoc, onSnapshot, serverTimestamp, ref, uploadBytes, getDownloadURL, functions, httpsCallable } from '../firebase';
+import { db, storage, collection, addDoc, onSnapshot, serverTimestamp, ref, uploadBytes, getDownloadURL } from '../firebase';
 import { toast } from '../utils/toast';
 
 export default function ProductForm() {
@@ -22,7 +22,7 @@ export default function ProductForm() {
 
     return () => unsubscribe();
   }, []);
-  
+
   const [baseRate, setBaseRate] = useState('');
   const [unitType, setUnitType] = useState('per Bundle');
   const [bundlePieces, setBundlePieces] = useState(10);
@@ -31,9 +31,11 @@ export default function ProductForm() {
   const [stockStatus, setStockStatus] = useState('IN_STOCK');
   const [seasonNotice, setSeasonNotice] = useState('Price may differ based on the season item or the stock quantity');
   const [description, setDescription] = useState('');
-  
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [hidePrice, setHidePrice] = useState(false);
+
+  // Multi-Image State (Up to 3 images)
+  const [imageFiles, setImageFiles] = useState([null, null, null]);
+  const [imagePreviews, setImagePreviews] = useState([null, null, null]);
   const [uploading, setUploading] = useState(false);
 
   const handleUnitChange = (unit) => {
@@ -45,14 +47,6 @@ export default function ProductForm() {
     } else {
       setBundlePieces(1);
       setMinOrderNotice('Available for individual piece purchase');
-    }
-  };
-
-  const handlePiecesChange = (val) => {
-    const num = parseInt(val, 10) || 0;
-    setBundlePieces(num);
-    if (unitType === 'per Bundle' || unitType === 'per Dozen') {
-      setMinOrderNotice(`Purchased per full ${unitType.replace('per ', '')} (${num} Pcs only)`);
     }
   };
 
@@ -116,16 +110,31 @@ export default function ProductForm() {
     });
   };
 
-  const handleImageChange = (e) => {
+  const handleSlotImageChange = (index, e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.size > 10 * 1024 * 1024) {
         toast.warning('Image size exceeds 10MB limit. Please select a smaller file.', 'File Too Large');
         return;
       }
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+      const newFiles = [...imageFiles];
+      newFiles[index] = file;
+      setImageFiles(newFiles);
+
+      const newPreviews = [...imagePreviews];
+      newPreviews[index] = URL.createObjectURL(file);
+      setImagePreviews(newPreviews);
     }
+  };
+
+  const handleRemoveSlotImage = (index) => {
+    const newFiles = [...imageFiles];
+    newFiles[index] = null;
+    setImageFiles(newFiles);
+
+    const newPreviews = [...imagePreviews];
+    newPreviews[index] = null;
+    setImagePreviews(newPreviews);
   };
 
   const handleSubmit = async (e) => {
@@ -136,33 +145,39 @@ export default function ProductForm() {
     }
 
     setUploading(true);
-    let imageUrl = '/assets/logo.jpg';
+    const uploadedUrls = [];
 
-    if (imageFile) {
-      try {
-        // Fast 1.5s check: uses Cloud Storage if Blaze enabled, or instant compressed image on Spark Free Plan
-        const storageTimeout = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Cloud Storage not provisioned or timeout')), 1500)
-        );
-
-        await Promise.race([uploadBytes(storageRef, imageFile), storageTimeout]);
-        imageUrl = await getDownloadURL(storageRef);
-      } catch (err) {
-        console.warn('Cloud Storage upload skipped or timed out, generating optimized visual Data URL fallback:', err.message);
+    for (let i = 0; i < 3; i++) {
+      const file = imageFiles[i];
+      if (file) {
         try {
-          imageUrl = await compressImage(imageFile, 600, 0.70);
-          toast.info('Image attached & saved for this item.', 'Photo Saved');
-        } catch (compErr) {
-          console.error('Image compression failed:', compErr);
-          imageUrl = '/assets/logo.jpg';
+          const timestamp = Date.now();
+          const storageRef = ref(storage, `products/mat_${timestamp}_${i}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`);
+          const storageTimeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Cloud Storage timeout')), 1500)
+          );
+          await Promise.race([uploadBytes(storageRef, file), storageTimeout]);
+          const url = await getDownloadURL(storageRef);
+          uploadedUrls.push(url);
+        } catch (err) {
+          console.warn(`Storage upload slot ${i} notice, compressing image locally:`, err.message);
+          try {
+            const dataUrl = await compressImage(file, 600, 0.70);
+            uploadedUrls.push(dataUrl);
+          } catch {
+            uploadedUrls.push('/assets/logo.jpg');
+          }
         }
       }
     }
 
+    const finalImages = uploadedUrls.length > 0 ? uploadedUrls : ['/assets/logo.jpg'];
+    const primaryImageUrl = finalImages[0];
+
     const finalBundlesPerPack = Math.max(1, parseInt(bundlesPerPack, 10) || 1);
     const finalBundlePieces = unitType === 'per Piece' ? 1 : (parseInt(bundlePieces, 10) || 1);
-
     const nowIso = new Date().toISOString();
+
     const productData = {
       title: name.trim(),
       category,
@@ -177,7 +192,9 @@ export default function ProductForm() {
       stockQty: stockStatus === 'IN_STOCK' ? 100 : 0,
       seasonNotice,
       description: description.trim(),
-      imageUrl
+      imageUrl: primaryImageUrl, // Backward compatibility for existing codebase
+      images: finalImages,         // Multi-image array support (Max 3)
+      hidePrice: Boolean(hidePrice) // Real-time Price visibility toggle
     };
 
     const firestorePayload = {
@@ -186,32 +203,19 @@ export default function ProductForm() {
     };
 
     try {
-      // Single authoritative write to Firestore
-      const docRef = await addDoc(collection(db, 'products'), firestorePayload);
-
+      await addDoc(collection(db, 'products'), firestorePayload);
       toast.success(`Product "${name}" uploaded successfully! Catalog updated.`, 'Product Uploaded');
-      setName('');
-      setBaseRate('');
-      setBundlesPerPack(8);
-      setBundlePieces(10);
-      setUnitType('per Bundle');
-      setDescription('');
-      setImageFile(null);
-      setImagePreview(null);
+      resetForm();
     } catch (err) {
-      console.warn('Persisting product locally & broadcasting across tabs in real-time:', err.message);
+      console.warn('Persisting product locally & broadcasting across tabs:', err.message);
       const localProduct = {
         id: 'prod_' + Date.now(),
         ...productData,
         createdAt: nowIso
       };
       try {
-        const sanitizedForStorage = {
-          ...localProduct,
-          imageUrl: (localProduct.imageUrl && localProduct.imageUrl.startsWith('data:')) ? '/assets/logo.jpg' : localProduct.imageUrl
-        };
         const existing = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
-        localStorage.setItem('gsco_catalog_products', JSON.stringify([sanitizedForStorage, ...existing.slice(0, 30)]));
+        localStorage.setItem('gsco_catalog_products', JSON.stringify([localProduct, ...existing.slice(0, 30)]));
       } catch (quotaErr) {
         console.warn('LocalStorage quota notice:', quotaErr);
       }
@@ -221,21 +225,26 @@ export default function ProductForm() {
           channel.postMessage({ type: 'PRODUCT_ADDED', product: localProduct });
           channel.close();
         } catch (bcErr) {
-          console.warn('BroadcastChannel error:', bcErr);
+          console.warn('BroadcastChannel notice:', bcErr);
         }
       }
       toast.success(`Product "${name}" uploaded successfully! Added to catalog.`, 'Product Uploaded');
-      setName('');
-      setBaseRate('');
-      setBundlesPerPack(8);
-      setBundlePieces(10);
-      setUnitType('per Bundle');
-      setDescription('');
-      setImageFile(null);
-      setImagePreview(null);
+      resetForm();
     } finally {
       setUploading(false);
     }
+  };
+
+  const resetForm = () => {
+    setName('');
+    setBaseRate('');
+    setBundlesPerPack(8);
+    setBundlePieces(10);
+    setUnitType('per Bundle');
+    setDescription('');
+    setHidePrice(false);
+    setImageFiles([null, null, null]);
+    setImagePreviews([null, null, null]);
   };
 
   return (
@@ -245,29 +254,45 @@ export default function ProductForm() {
           <h2>
             <i className="fa-solid fa-circle-plus"></i> Add Mat to Catalog
           </h2>
-          <p className="section-desc">Add mat details, upload photo, choose category, rate, and packaging.</p>
+          <p className="section-desc">Add mat details, upload up to 3 photos, select rate, and control price visibility.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="product-form">
-          {/* Photo Upload Zone */}
+          {/* Multi-Photo Upload Zone (Up to 3 Images) */}
           <div className="form-group">
-            <label><i className="fa-solid fa-image"></i> Product Image Upload</label>
-            <div className="image-upload-zone">
-              <input type="file" accept="image/*" className="file-input" onChange={handleImageChange} />
-              {!imagePreview ? (
-                <div className="upload-placeholder">
-                  <i className="fa-solid fa-cloud-arrow-up upload-icon"></i>
-                  <p>Click or drag & drop mat photo</p>
-                  <span className="upload-hint">JPG, PNG or WEBP up to 5MB</span>
+            <label><i className="fa-solid fa-images"></i> Product Image Upload (Up to 3 Photos)</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem', marginTop: '0.4rem' }}>
+              {[0, 1, 2].map((idx) => (
+                <div key={idx} className="image-upload-zone" style={{ minHeight: '110px', padding: '0.4rem', textAlign: 'center' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="file-input"
+                    onChange={(e) => handleSlotImageChange(idx, e)}
+                  />
+                  {!imagePreviews[idx] ? (
+                    <div className="upload-placeholder" style={{ padding: '0.5rem 0.2rem' }}>
+                      <i className="fa-solid fa-cloud-arrow-up" style={{ fontSize: '1.2rem', color: '#64748b' }}></i>
+                      <p style={{ fontSize: '0.72rem', margin: '0.2rem 0', fontWeight: 600 }}>
+                        {idx === 0 ? 'Photo 1 (Main)' : `Photo ${idx + 1}`}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="image-preview-container" style={{ position: 'relative', width: '100%', height: '90px' }}>
+                      <img src={imagePreviews[idx]} alt={`Preview ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} />
+                      <button
+                        type="button"
+                        className="btn-remove-img"
+                        onClick={() => handleRemoveSlotImage(idx)}
+                        title="Remove photo"
+                        style={{ position: 'absolute', top: '2px', right: '2px', padding: '0.2rem 0.4rem', fontSize: '0.7rem' }}
+                      >
+                        <i className="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="image-preview-container">
-                  <img src={imagePreview} alt="Preview" />
-                  <button type="button" className="btn-remove-img" onClick={() => { setImageFile(null); setImagePreview(null); }} title="Remove photo">
-                    <i className="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-              )}
+              ))}
             </div>
           </div>
 
@@ -297,8 +322,8 @@ export default function ProductForm() {
               <option value="Export Mat">Export Mat</option>
               <option value="Local Mat">Local Mat</option>
               <option value="Long Mat">Long Mat</option>
-              {customCategories.map((cat, idx) => (
-                <option key={idx} value={cat}>{cat}</option>
+              {customCategories.map((cat, i) => (
+                <option key={i} value={cat}>{cat}</option>
               ))}
               <option value="NEW_CATEGORY">+ Create New Category...</option>
             </select>
@@ -339,140 +364,60 @@ export default function ProductForm() {
                 min="1"
                 required
               />
-              <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
-                {unitType === 'per Piece'
-                  ? 'Price for 1 single piece'
-                  : baseRate && bundlePieces
-                    ? `Price for 1 full bundle (~ ₹${Math.round(parseFloat(baseRate) / bundlePieces)} / pc)`
-                    : `Price for 1 full ${unitType.replace('per ', '')}`}
-              </small>
             </div>
             <div className="form-group col-6">
-              <label><i className="fa-solid fa-ruler-combined"></i> Selling Unit</label>
-              <select className="form-control" value={unitType} onChange={(e) => handleUnitChange(e.target.value)}>
-                <option value="per Bundle">per Bundle</option>
-                <option value="per Piece">per Piece</option>
-                <option value="per Dozen">per Dozen</option>
-                <option value="per Meter">per Meter</option>
-                <option value="per Feet">per Feet</option>
-              </select>
-              <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
-                How this mat is sold to customers
-              </small>
-            </div>
-          </div>
-
-          {/* Packaging Configuration: Pieces per Bundle & Bundles / Pieces per Master Bale */}
-          <div className="form-row">
-            {(unitType === 'per Bundle' || unitType === 'per Dozen') ? (
-              <>
-                <div className="form-group col-6">
-                  <label><i className="fa-solid fa-boxes-packing"></i> Pieces per {unitType.replace('per ', '')}</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={bundlePieces}
-                    onChange={(e) => handlePiecesChange(e.target.value)}
-                    placeholder="e.g. 10 or 50"
-                    min="1"
-                    required
-                  />
-                  <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
-                    Pieces in 1 bundle
-                  </small>
-                </div>
-                <div className="form-group col-6">
-                  <label><i className="fa-solid fa-cube"></i> Bundles / Master Bale</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={bundlesPerPack}
-                    onChange={(e) => setBundlesPerPack(e.target.value)}
-                    placeholder="e.g. 3 (Robo), 8 (13x19)"
-                    min="1"
-                    required
-                  />
-                  <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
-                    Bundles per Master Bale
-                  </small>
-                </div>
-              </>
-            ) : (
-              <div className="form-group col-12">
-                <label><i className="fa-solid fa-cube"></i> Pieces per Master Bale</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  value={bundlesPerPack}
-                  onChange={(e) => setBundlesPerPack(e.target.value)}
-                  placeholder="e.g. 120"
-                  min="1"
-                  required
-                />
-                <small style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
-                  Total individual pieces that fit in 1 Master Bale
-                </small>
-              </div>
-            )}
-          </div>
-
-          {/* Min Order Notice */}
-          <div className="form-group">
-            <label><i className="fa-solid fa-cart-flatbed"></i> Customer Purchase Notice</label>
-            <input
-              type="text"
-              className="form-control"
-              value={minOrderNotice}
-              onChange={(e) => setMinOrderNotice(e.target.value)}
-              placeholder="Notice..."
-            />
-          </div>
-
-          {/* Stock Availability Status & Season/Stock Pricing Notice */}
-          <div className="form-row">
-            <div className="form-group col-6">
-              <label><i className="fa-solid fa-warehouse"></i> Stock Availability</label>
+              <label><i className="fa-solid fa-box-archive"></i> Selling Unit</label>
               <select
                 className="form-control"
-                value={stockStatus}
-                onChange={(e) => setStockStatus(e.target.value)}
-                style={{
-                  fontWeight: 700,
-                  color: stockStatus === 'IN_STOCK' ? '#166534' : '#991b1b',
-                  backgroundColor: stockStatus === 'IN_STOCK' ? '#f0fdf4' : '#fef2f2',
-                  borderColor: stockStatus === 'IN_STOCK' ? '#86efac' : '#fca5a5'
-                }}
+                value={unitType}
+                onChange={(e) => handleUnitChange(e.target.value)}
               >
-                <option value="IN_STOCK">In Stock</option>
-                <option value="OUT_OF_STOCK">Out of Stock</option>
+                <option value="per Bundle">per Bundle</option>
+                <option value="per Dozen">per Dozen</option>
+                <option value="per Piece">per Piece</option>
               </select>
-            </div>
-            <div className="form-group col-6">
-              <label><i className="fa-solid fa-tags"></i> Pricing Notice</label>
-              <input
-                type="text"
-                className="form-control"
-                value={seasonNotice}
-                onChange={(e) => setSeasonNotice(e.target.value)}
-                placeholder="Price may differ based on the season item or the stock quantity"
-              />
             </div>
           </div>
 
-          {/* Details */}
+          {/* HIDE PRICE TOGGLE SWITCH CONTROL */}
+          <div className="form-group" style={{ background: hidePrice ? '#fef2f2' : '#f8fafc', padding: '0.75rem', borderRadius: '8px', border: hidePrice ? '1px solid #fca5a5' : '1px solid #e2e8f0', margin: '0.8rem 0' }}>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0, color: hidePrice ? '#991b1b' : 'var(--brand-navy)' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>
+                <i className={`fa-solid ${hidePrice ? 'fa-eye-slash' : 'fa-eye'}`} style={{ marginRight: '0.4rem', color: hidePrice ? '#dc2626' : 'var(--brand-emerald)' }}></i>
+                Hide Price from Customers
+              </span>
+              <input
+                type="checkbox"
+                checked={hidePrice}
+                onChange={(e) => setHidePrice(e.target.checked)}
+                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#dc2626' }}
+              />
+            </label>
+            <small style={{ fontSize: '0.74rem', color: hidePrice ? '#b91c1c' : '#64748b', display: 'block', marginTop: '0.3rem' }}>
+              {hidePrice
+                ? '⚠️ Price will be HIDDEN on customer site (shows "Price on Inquiry").'
+                : '✅ Price is VISIBLE to all customers.'}
+            </small>
+          </div>
+
+          {/* Description */}
           <div className="form-group">
-            <label><i className="fa-solid fa-align-left"></i> Product Details</label>
+            <label><i className="fa-solid fa-align-left"></i> Specifications / Description</label>
             <textarea
               className="form-control"
-              rows="3"
+              rows="2"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Dimensions, materials, color patterns..."
+              placeholder="e.g. 100% High density woven cotton, non-slip backing, anti-dust..."
             ></textarea>
           </div>
 
-          <button type="submit" className="btn-submit-product" disabled={uploading}>
-            <i className="fa-solid fa-plus-circle"></i> {uploading ? 'Processing via Server...' : 'Upload Mat Product'}
+          <button type="submit" className="btn btn-primary btn-block btn-upload" disabled={uploading}>
+            {uploading ? (
+              <span><i className="fa-solid fa-spinner fa-spin"></i> Uploading Product...</span>
+            ) : (
+              <span><i className="fa-solid fa-cloud-arrow-up"></i> Upload Mat to Catalog</span>
+            )}
           </button>
         </form>
       </section>

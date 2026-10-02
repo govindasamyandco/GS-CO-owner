@@ -114,6 +114,35 @@ export default function ProductGrid({ products }) {
     }
   };
 
+  // Quick Toggle Hide / Show Price Control
+  const handleToggleHidePrice = async (prod) => {
+    const newHidePrice = !prod.hidePrice;
+    try {
+      const updatePayload = { hidePrice: newHidePrice };
+      await updateDoc(doc(db, 'products', prod.id), updatePayload);
+
+      const cached = JSON.parse(localStorage.getItem('gsco_catalog_products') || '[]');
+      const updatedList = cached.map(p => p.id === prod.id ? { ...p, ...updatePayload } : p);
+      localStorage.setItem('gsco_catalog_products', JSON.stringify(updatedList));
+
+      if (typeof window !== 'undefined' && window.BroadcastChannel) {
+        const channel = new BroadcastChannel('gsco_realtime_channel');
+        channel.postMessage({ type: 'PRODUCT_UPDATED', product: { ...prod, hidePrice: newHidePrice } });
+        channel.close();
+      }
+
+      toast.success(
+        newHidePrice
+          ? `Price HIDDEN for "${prod.title}". Customer site now shows "Price on Inquiry".`
+          : `Price VISIBLE for "${prod.title}". Customer site now displays numerical rate.`,
+        'Price Visibility Updated'
+      );
+    } catch (err) {
+      console.error('Hide price toggle error:', err);
+      toast.error('Failed to update price visibility: ' + err.message, 'Error');
+    }
+  };
+
   // Quick Toggle Stock Status (In Stock vs Out of Stock)
   const handleToggleStock = async (prod) => {
     const isCurrentlyInStock = prod.inStock !== false && prod.stockStatus !== 'OUT_OF_STOCK';
@@ -450,11 +479,11 @@ export default function ProductGrid({ products }) {
                     )}
                   </div>
 
-                  <div className="card-admin-actions" style={{ display: 'flex', gap: '0.4rem' }}>
+                  <div className="card-admin-actions" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       className="btn-select-pill"
-                      style={{ padding: '0.5rem 0.95rem', fontSize: '0.82rem' }}
+                      style={{ padding: '0.5rem 0.85rem', fontSize: '0.82rem' }}
                       onClick={() => handleStartEdit(p)}
                     >
                       <i className="fa-solid fa-pen-to-square"></i> Edit
@@ -463,8 +492,21 @@ export default function ProductGrid({ products }) {
                       type="button"
                       className="btn-select-pill"
                       style={{
+                        background: p.hidePrice ? '#dc2626' : '#0284c7',
+                        padding: '0.5rem 0.85rem',
+                        fontSize: '0.82rem'
+                      }}
+                      onClick={() => handleToggleHidePrice(p)}
+                      title={p.hidePrice ? 'Click to SHOW numerical price on customer portal' : 'Click to HIDE price on customer portal'}
+                    >
+                      <i className={`fa-solid ${p.hidePrice ? 'fa-eye-slash' : 'fa-eye'}`}></i> {p.hidePrice ? 'Price Hidden' : 'Hide Price'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-select-pill"
+                      style={{
                         background: isDisabled ? '#16a34a' : '#d97706',
-                        padding: '0.5rem 0.95rem',
+                        padding: '0.5rem 0.85rem',
                         fontSize: '0.82rem'
                       }}
                       onClick={() => handleToggleDisabled(p)}
